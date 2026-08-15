@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#fafaf9"/>
+  <g stroke="#1e3a8a" stroke-width="4" stroke-linejoin="round" fill="#2563eb">
+    <rect x="120" y="70" width="160" height="140" rx="14"/>
+    <rect x="120" y="220" width="160" height="24" rx="6"/>
+    <line x1="140" y1="244" x2="130" y2="330"/>
+    <line x1="260" y1="244" x2="270" y2="330"/>
+    <line x1="150" y1="244" x2="145" y2="300"/>
+    <line x1="250" y1="244" x2="255" y2="300"/>
+    <line x1="130" y1="330" x2="270" y2="330"/>
+  </g>
+  <text x="200" y="370" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#57534e" text-anchor="middle">Mastro</text>
+</svg>

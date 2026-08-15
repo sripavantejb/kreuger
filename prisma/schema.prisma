@@ -1,0 +1,197 @@
+// Manufacturing operations dashboard — data model
+// See /BUILD_SPEC.md (in repo root, provided by MD) for the source spec.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Singleton row (id = 1) holding the tunable constants from the planning spec,
+// plus the escalation contacts used when building Alerts.
+model Settings {
+  id             Int   @id @map("_id")
+  procurementDays Float @default(3)
+  rampDays        Float @default(1.5)
+  shiftHours      Float @default(8)
+
+  plantHeadName        String @default("Plant Head")
+  plantHeadEmail       String @default("plant.head@kreuger.local")
+  procurementHeadName  String @default("Procurement Head")
+  procurementHeadEmail String @default("procurement.head@kreuger.local")
+  dispatchHeadName     String @default("Dispatch Head")
+  dispatchHeadEmail    String @default("dispatch.head@kreuger.local")
+}
+
+// One user. Manager level. Desktop. — now Admin / Manager / Viewer.
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("VIEWER") // ADMIN | MANAGER | VIEWER
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  code      String   @unique
+  baseRate  Float
+
+  materials       ProductMaterial[]
+  departmentRates ProductDepartmentRate[]
+  pricingSlabs    PricingSlab[]
+  colourImages    ProductColourImage[]
+  quotations      Quotation[]
+  orders          OrderConfirmation[]
+}
+
+model Colour {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  hexCode String
+
+  productImages ProductColourImage[]
+  quotations    Quotation[]
+  orders        OrderConfirmation[]
+}
+
+// Product.imageByColour, modelled as a join table so it stays editable data.
+model ProductColourImage {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  productId String  @db.ObjectId
+  colourId  String  @db.ObjectId
+  imagePath String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colour  Colour  @relation(fields: [colourId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, colourId])
+}
+
+model Department {
+  id                   String @id @default(auto()) @map("_id") @db.ObjectId
+  name                 String
+  sequence             Int
+  headcount            Int
+  unitsPerWorkerPerDay Float
+  maxUnitsPerDay       Int
+  headName             String @default("")
+  headEmail            String @default("")
+
+  productRates ProductDepartmentRate[]
+  ocPlans      OcDepartmentPlan[]
+}
+
+// Optional per-product override of a department's default rate/ceiling.
+// Falls back to the Department row when no override exists.
+model ProductDepartmentRate {
+  id                   String @id @default(auto()) @map("_id") @db.ObjectId
+  productId            String @db.ObjectId
+  departmentId         String @db.ObjectId
+  unitsPerWorkerPerDay Float
+  maxUnitsPerDay       Int
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, departmentId])
+}
+
+model ProductMaterial {
+  id              String @id @default(auto()) @map("_id") @db.ObjectId
+  productId       String @db.ObjectId
+  materialName    String
+  unit            String
+  quantityPerUnit Float
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model PricingSlab {
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  productId      String @db.ObjectId
+  minQuantity    Int
+  maxQuantity    Int?
+  discountPercent Float
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Quotation {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  quotationNumber     String   @unique
+  productId           String   @db.ObjectId
+  quantity            Int
+  colourId            String   @db.ObjectId
+  unitRate            Float
+  lineTotal           Float
+  createdAt           DateTime @default(now())
+  revisesQuotationNumber String? // set when this quotation was created via "Revise"
+
+  product Product @relation(fields: [productId], references: [id])
+  colour  Colour  @relation(fields: [colourId], references: [id])
+}
+
+model OrderConfirmation {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  ocNumber     String   @unique
+  productId    String   @db.ObjectId
+  quantity     Int
+  colourId     String   @db.ObjectId
+  targetDays   Int
+  plannedAt    DateTime @default(now())
+  currentStage String
+  status       String   // planning | in_progress | closed
+
+  product Product @relation(fields: [productId], references: [id])
+  colour  Colour  @relation(fields: [colourId], references: [id])
+
+  plan   OcDepartmentPlan[]
+  events OcStageEvent[]
+  alerts Alert[]
+}
+
+model OcDepartmentPlan {
+  id              String @id @default(auto()) @map("_id") @db.ObjectId
+  ocId            String @db.ObjectId
+  departmentId    String @db.ObjectId
+  workersRequired Int
+  stageHours      Float
+  stageDays       Float
+
+  oc         OrderConfirmation @relation(fields: [ocId], references: [id], onDelete: Cascade)
+  department Department        @relation(fields: [departmentId], references: [id])
+}
+
+model OcStageEvent {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  ocId          String    @db.ObjectId
+  stageName     String
+  enteredAt     DateTime  @default(now())
+  exitedAt      DateTime?
+  durationHours Float?
+  deadlineDays  Float
+  breached      Boolean   @default(false)
+
+  oc OrderConfirmation @relation(fields: [ocId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  ocId           String?  @db.ObjectId
+  type           String   // stage_entry | deadline_breach
+  recipient      String
+  recipientEmail String   @default("")
+  subject        String
+  body           String
+  createdAt      DateTime @default(now())
+  emailSent      Boolean  @default(false)
+
+  oc OrderConfirmation? @relation(fields: [ocId], references: [id], onDelete: Cascade)
+}
