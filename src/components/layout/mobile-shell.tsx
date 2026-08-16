@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarNav } from "@/components/layout/nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { BrandMark } from "@/components/layout/brand-logo";
+import { ChatWidget } from "@/components/chat/chat-widget";
 
 export function MobileShell({
   alertBadgeCount,
@@ -110,6 +111,8 @@ export function MobileShell({
           </aside>
         </div>
       )}
+
+      <ChatWidget />
     </div>
   );
 }

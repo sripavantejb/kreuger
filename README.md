@@ -43,6 +43,24 @@ Seeded users (password `ChangeMe123!`): `admin@kreuger.local`, `manager@kreuger.
 - **OC** — production tracking id (`OrderConfirmation`)  
 - Demo material **available qty** is master-data only — **not** live SAP inventory  
 
+## RAG assistant
+
+A floating chat assistant is available on every authenticated page. It answers questions from indexed ops data (products, quotations, sales orders, OCs, manpower, alerts, settings) plus static workflow knowledge.
+
+```bash
+LLM_API_KEY=sk-...
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+```
+
+Then index (or re-index) knowledge:
+
+```bash
+npm run index-knowledge
+```
+
+`npm run seed` also reindexes when `LLM_API_KEY` is set. Without a key, chat shows a clear configuration message and indexing is skipped.
+
 ## Email (Gmail)
 
 Alerts are **always** written to `/alerts` with delivery status (`sent` / `failed` / `disabled`).

@@ -363,3 +363,14 @@ model EmailLog {
 
   alert Alert? @relation(fields: [alertId], references: [id], onDelete: Cascade)
 }
+
+// RAG knowledge chunks — text + OpenAI embeddings for in-process cosine retrieval.
+model KnowledgeChunk {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  source    String // product | quotation | sales_order | order | alert | department | settings | manpower | docs
+  sourceId  String?
+  title     String
+  content   String
+  embedding Float[]
+  updatedAt DateTime @updatedAt
+}

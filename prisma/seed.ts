@@ -13,6 +13,7 @@ const now = new Date();
 const daysAgo = (d: number) => new Date(now.getTime() - d * DAY_MS);
 
 async function reset() {
+  await prisma.knowledgeChunk.deleteMany();
   await prisma.manpowerPlanLine.deleteMany();
   await prisma.manpowerPlan.deleteMany();
   await prisma.holiday.deleteMany();
@@ -741,6 +742,18 @@ async function main() {
 
   console.log("Seed complete.");
   console.log(`Stages: ${stageList.join(" -> ")}`);
+
+  if (process.env.LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()) {
+    const { reindexKnowledge } = await import("../src/lib/rag/index");
+    const result = await reindexKnowledge();
+    if (result.ok) {
+      console.log(`Knowledge index: ${result.count} chunks.`);
+    } else {
+      console.warn(`Knowledge index skipped/failed (${result.reason}): ${result.message}`);
+    }
+  } else {
+    console.log("LLM_API_KEY not set — skipped knowledge reindex (run npm run index-knowledge later).");
+  }
 }
 
 main()
