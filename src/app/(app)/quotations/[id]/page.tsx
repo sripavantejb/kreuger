@@ -4,6 +4,7 @@ import { getSession, roleAtLeast } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/page-header";
 import { QuotationPreview } from "@/components/quotations/quotation-preview";
 import { QuotationDetailActions } from "@/components/quotations/quotation-detail-actions";
+import { toQuotationPreviewData } from "@/lib/quotation-doc-data";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,12 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
     <div>
       <PageHeader
         title={quotation.quotationNumber}
-        description="Quotation preview — layout matches the exported PDF."
+        description="Purchase order preview — layout matches the exported PDF."
         help={{
           content: (
             <>
-              <p>This is exactly what the exported PDF looks like — the unit rate already reflects the quantity discount slab from Master Data.</p>
-              <p>From here you can revise (create a new quotation number superseding this one), duplicate (start a fresh quotation pre-filled from this), or export the PDF to send to the customer.</p>
+              <p>This matches the exported Purchase Order PDF — rates already include quantity discount slabs from Master Data.</p>
+              <p>You can revise, export PDF, or print from the actions above.</p>
             </>
           ),
         }}
@@ -49,29 +50,13 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
           />
         }
       />
-      <div className="px-4 py-6 sm:px-6 md:px-8 max-w-2xl">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:px-8">
         {quotation.revisesQuotationNumber && (
           <div className="mb-4 rounded-md border border-border bg-secondary/40 px-4 py-2 text-sm text-muted-foreground">
             This is a revision of {quotation.revisesQuotationNumber}.
           </div>
         )}
-        <QuotationPreview
-          data={{
-            quotationNumber: quotation.quotationNumber,
-            date: quotation.createdAt,
-            productName: quotation.product.name,
-            productCode: quotation.product.code,
-            description: quotation.product.description,
-            imagePath: image?.imagePath ?? "",
-            colourName: quotation.colour.name,
-            colourHex: quotation.colour.hexCode,
-            location: quotation.location,
-            quantity: quotation.quantity,
-            unitRate: quotation.unitRate,
-            lineTotal: quotation.lineTotal,
-            gstPercent: settings.gstPercent,
-          }}
-        />
+        <QuotationPreview data={toQuotationPreviewData(quotation, image?.imagePath ?? "", settings.gstPercent)} />
       </div>
     </div>
   );

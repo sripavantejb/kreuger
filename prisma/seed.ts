@@ -122,6 +122,7 @@ async function main() {
       name: "Mastro",
       code: "MASTRO",
       baseRate: 4500,
+      hsnCode: "9401",
       description:
         "Medium back mesh task chair\nSelf-calibrating multilock with seat slide mechanism\nAdjustable lumbar support\nThree-way adjustable armrests (height, swivel, front and back)\nNylon base with 60mm castors\nFabric-upholstered cushion seat",
     },
@@ -133,6 +134,7 @@ async function main() {
       name: "Nova",
       code: "NOVA",
       baseRate: 6200,
+      hsnCode: "9401",
       description:
         "High back executive chair\nMoulded foam seat and back cushion\nSynchro-tilt mechanism with tension control\nPolished aluminium base with 65mm castors\nHeight-adjustable headrest",
     },
@@ -192,12 +194,30 @@ async function main() {
     ...slabsData.map((s) => prisma.pricingSlab.create({ data: { productId: nova.id, ...s } })),
   ]);
 
-  // Three sample quotations
+  // Three sample purchase orders (stored as Quotation)
+  const partyDefaults = {
+    vendorName: "Maruthi Enterprises",
+    vendorAddress: "No. 12, Industrial Layout, Peenya, Bengaluru",
+    vendorState: "Karnataka",
+    vendorStateCode: "29",
+    vendorGstin: "29AABCM1234D1Z2",
+    shipToName: "Krueger International Furniture Systems Pvt.Ltd.",
+    shipToAddress: "Jigani55, Bommasandra-Jigani Link Road, BENGALURU-562106",
+    shipToState: "Karnataka",
+    shipToStateCode: "29",
+    shipToGstin: "29AABCK1234A1Z5",
+    contactPerson: "Plant Manager",
+    contactPhone: "+91-80-1234-5678",
+    contactEmail: "manager@kreuger.local",
+    buyerName: "Procurement",
+    paymentTerms: "Advance 100%",
+  };
+
   const q1Qty = 50;
   const q1Rate = computeUnitRate(mastro.baseRate, q1Qty, slabsData);
   await prisma.quotation.create({
     data: {
-      quotationNumber: "Q-2026-0001",
+      quotationNumber: "PO-2026-0001",
       productId: mastro.id,
       quantity: q1Qty,
       colourId: colourByName["Black"].id,
@@ -205,32 +225,42 @@ async function main() {
       lineTotal: q1Rate * q1Qty,
       location: "Workstations",
       createdAt: daysAgo(6),
+      ...partyDefaults,
+      remarks: "Mastro chairs — Black — Workstations floor",
+      deliveryDate: daysAgo(-14),
     },
   });
   const q2Qty = 300;
   const q2Rate = computeUnitRate(mastro.baseRate, q2Qty, slabsData);
   await prisma.quotation.create({
     data: {
-      quotationNumber: "Q-2026-0002",
+      quotationNumber: "PO-2026-0002",
       productId: mastro.id,
       quantity: q2Qty,
       colourId: colourByName["White"].id,
       unitRate: q2Rate,
       lineTotal: q2Rate * q2Qty,
       createdAt: daysAgo(2),
+      ...partyDefaults,
+      remarks: "Bulk Mastro order — White",
+      deliveryDate: daysAgo(-21),
     },
   });
   const q3Qty = 40;
   const q3Rate = computeUnitRate(nova.baseRate, q3Qty, slabsData);
   await prisma.quotation.create({
     data: {
-      quotationNumber: "Q-2026-0003",
+      quotationNumber: "PO-2026-0003",
       productId: nova.id,
       quantity: q3Qty,
       colourId: colourByName["Blue"].id,
       unitRate: q3Rate,
       lineTotal: q3Rate * q3Qty,
       createdAt: daysAgo(1),
+      ...partyDefaults,
+      vendorRefNo: "ME/QT/2026/088",
+      remarks: "Nova executive chairs — Blue",
+      deliveryDate: daysAgo(-10),
     },
   });
 

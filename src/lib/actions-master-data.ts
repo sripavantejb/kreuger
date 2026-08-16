@@ -52,6 +52,7 @@ export async function updateProduct(input: {
   baseRate: number;
   defaultLeadDays: number;
   description: string;
+  hsnCode: string;
 }) {
   await requireRole("ADMIN");
   await prisma.product.update({
@@ -62,9 +63,11 @@ export async function updateProduct(input: {
       baseRate: input.baseRate,
       defaultLeadDays: input.defaultLeadDays,
       description: input.description,
+      hsnCode: input.hsnCode.trim(),
     },
   });
   revalidatePath("/master-data");
+  revalidatePath(`/master-data/products/${input.id}`);
   revalidatePath("/quotations");
 }
 

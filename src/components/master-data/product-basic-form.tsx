@@ -25,6 +25,7 @@ type Product = {
   baseRate: number;
   defaultLeadDays: number;
   description: string;
+  hsnCode: string;
 };
 
 export function ProductBasicForm({ product, readOnly = false }: { product: Product; readOnly?: boolean }) {
@@ -34,6 +35,7 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
   const [baseRate, setBaseRate] = useState(product.baseRate);
   const [defaultLeadDays, setDefaultLeadDays] = useState(product.defaultLeadDays);
   const [description, setDescription] = useState(product.description);
+  const [hsnCode, setHsnCode] = useState(product.hsnCode);
   const [pending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
@@ -44,11 +46,12 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
     code !== product.code ||
     baseRate !== product.baseRate ||
     defaultLeadDays !== product.defaultLeadDays ||
-    description !== product.description;
+    description !== product.description ||
+    hsnCode !== product.hsnCode;
 
   function save() {
     startTransition(async () => {
-      await updateProduct({ id: product.id, name, code, baseRate, defaultLeadDays, description });
+      await updateProduct({ id: product.id, name, code, baseRate, defaultLeadDays, description, hsnCode });
       toast.success("Product updated");
     });
   }
@@ -94,6 +97,17 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
         </p>
       </div>
       <div className="space-y-1.5">
+        <Label htmlFor="hsnCode">HSN / SAC code</Label>
+        <Input
+          id="hsnCode"
+          value={hsnCode}
+          disabled={readOnly}
+          placeholder="e.g. 9401"
+          onChange={(e) => setHsnCode(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">Shown on Purchase Order PDFs.</p>
+      </div>
+      <div className="space-y-1.5">
         <Label htmlFor="description">Specifications</Label>
         <Textarea
           id="description"
@@ -104,7 +118,7 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
           onChange={(e) => setDescription(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          One spec per line — rendered as bullet points on the quotation PDF.
+          One spec per line — rendered on the purchase order description.
         </p>
       </div>
       {!readOnly && (

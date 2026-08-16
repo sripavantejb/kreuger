@@ -80,7 +80,7 @@ export default async function DashboardPage() {
             style={{ animationDelay: "80ms" }}
           />
           <StatCard
-            label="Quotations"
+            label="Purchase orders"
             value={quotationsThisMonth}
             hint="Created this month"
             icon={<FileText className="size-4" />}

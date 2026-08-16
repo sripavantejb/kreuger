@@ -58,6 +58,7 @@ model Product {
   baseRate  Float
   defaultLeadDays Int @default(14) // pre-fills target days / plan range for new OCs of this product
   description String @default("") // one spec per line; rendered as bullet points on the quotation PDF
+  hsnCode   String   @default("") // HSN/SAC shown on Purchase Order PDFs
 
   materials       ProductMaterial[]
   departmentRates ProductDepartmentRate[]
@@ -151,7 +152,28 @@ model Quotation {
   lineTotal           Float
   createdAt           DateTime @default(now())
   revisesQuotationNumber String? // set when this quotation was created via "Revise"
-  location            String  @default("") // e.g. "Reception", "Workstations" — shown as its own column on the PDF
+  location            String  @default("") // e.g. "Reception", "Workstations" — line description location
+
+  // Purchase Order party / delivery fields (Maruthi-style commercial PDF)
+  vendorName       String @default("")
+  vendorAddress    String @default("")
+  vendorState      String @default("")
+  vendorStateCode  String @default("")
+  vendorGstin      String @default("")
+  shipToName       String @default("")
+  shipToAddress    String @default("")
+  shipToState      String @default("")
+  shipToStateCode  String @default("")
+  shipToGstin      String @default("")
+  deliveryDate     DateTime?
+  contactPerson    String @default("")
+  contactPhone     String @default("")
+  contactEmail     String @default("")
+  buyerName        String @default("")
+  vendorRefNo      String @default("")
+  remarks          String @default("")
+  paymentTerms     String @default("Advance 100%")
+  discountPercent  Float  @default(0)
 
   product Product @relation(fields: [productId], references: [id])
   colour  Colour  @relation(fields: [colourId], references: [id])

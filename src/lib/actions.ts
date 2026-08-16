@@ -14,16 +14,37 @@ import { saveManpowerPlan } from "./actions-manpower";
 async function nextQuotationNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const count = await prisma.quotation.count();
-  return `Q-${year}-${String(count + 1).padStart(4, "0")}`;
+  return `PO-${year}-${String(count + 1).padStart(4, "0")}`;
 }
 
-export async function createQuotation(input: {
+export type CreateQuotationInput = {
   productId: string;
   quantity: number;
   colourId: string;
   location?: string;
   revisesQuotationNumber?: string;
-}) {
+  vendorName?: string;
+  vendorAddress?: string;
+  vendorState?: string;
+  vendorStateCode?: string;
+  vendorGstin?: string;
+  shipToName?: string;
+  shipToAddress?: string;
+  shipToState?: string;
+  shipToStateCode?: string;
+  shipToGstin?: string;
+  deliveryDate?: string | null;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  buyerName?: string;
+  vendorRefNo?: string;
+  remarks?: string;
+  paymentTerms?: string;
+  discountPercent?: number;
+};
+
+export async function createQuotation(input: CreateQuotationInput) {
   await requireRole("MANAGER");
   const product = await prisma.product.findUniqueOrThrow({
     where: { id: input.productId },
@@ -43,6 +64,25 @@ export async function createQuotation(input: {
       lineTotal,
       location: input.location?.trim() ?? "",
       revisesQuotationNumber: input.revisesQuotationNumber,
+      vendorName: input.vendorName?.trim() ?? "",
+      vendorAddress: input.vendorAddress?.trim() ?? "",
+      vendorState: input.vendorState?.trim() ?? "",
+      vendorStateCode: input.vendorStateCode?.trim() ?? "",
+      vendorGstin: input.vendorGstin?.trim() ?? "",
+      shipToName: input.shipToName?.trim() ?? "",
+      shipToAddress: input.shipToAddress?.trim() ?? "",
+      shipToState: input.shipToState?.trim() ?? "",
+      shipToStateCode: input.shipToStateCode?.trim() ?? "",
+      shipToGstin: input.shipToGstin?.trim() ?? "",
+      deliveryDate: input.deliveryDate ? new Date(input.deliveryDate) : null,
+      contactPerson: input.contactPerson?.trim() ?? "",
+      contactPhone: input.contactPhone?.trim() ?? "",
+      contactEmail: input.contactEmail?.trim() ?? "",
+      buyerName: input.buyerName?.trim() ?? "",
+      vendorRefNo: input.vendorRefNo?.trim() ?? "",
+      remarks: input.remarks?.trim() ?? "",
+      paymentTerms: input.paymentTerms?.trim() || "Advance 100%",
+      discountPercent: input.discountPercent ?? 0,
     },
   });
   revalidatePath("/quotations");

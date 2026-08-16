@@ -56,58 +56,58 @@ export default async function QuotationsPage({
   });
 
   const csvRows = quotations.map((q) => ({
-    "Quotation #": q.quotationNumber,
+    "PO #": q.quotationNumber,
     Date: formatDate(q.createdAt),
     Product: q.product.name,
     Colour: q.colour.name,
     Quantity: q.quantity,
     "Unit rate": q.unitRate,
     "Line total": q.lineTotal,
+    Vendor: q.vendorName,
   }));
 
   return (
     <div>
       <PageHeader
-        title="Quotations"
-        description="Quantity-based pricing for Mastro, ready to export as a PDF."
+        title="Purchase orders"
+        description="Commercial POs with vendor, ship-to, HSN and GST — export as PDF."
         help={{
           content: (
             <>
-              <p>A quotation prices a product and quantity using its base rate and the quantity pricing slabs set in Master Data — larger quantities unlock bigger discounts automatically.</p>
+              <p>A purchase order prices a product and quantity using its base rate and quantity pricing slabs from Master Data.</p>
               <ul>
-                <li><strong>Revise</strong> — create a new quotation number that supersedes an earlier one, keeping both on record.</li>
-                <li><strong>Duplicate</strong> — start a new quotation pre-filled from an existing one.</li>
-                <li><strong>PDF export</strong> — download a formatted quote to send to the customer.</li>
+                <li><strong>Revise</strong> — create a new PO number that supersedes an earlier one.</li>
+                <li><strong>PDF export</strong> — download the Maruthi-style commercial layout.</li>
               </ul>
-              <p>A quotation on its own doesn&apos;t reserve capacity — that only happens once it becomes an order.</p>
+              <p>A PO on its own doesn&apos;t reserve capacity — that only happens once it becomes an order confirmation.</p>
             </>
           ),
         }}
         actions={
           canWrite && (
             <Button render={<Link href="/quotations/new" />} nativeButton={false}>
-              <Plus /> New quotation
+              <Plus /> New purchase order
             </Button>
           )
         }
       />
       <PageBody>
-        <ListToolbar searchPlaceholder="Search quotations…" sortOptions={SORT_OPTIONS}>
-          <ExportCsvButton filename="quotations.csv" rows={csvRows} />
+        <ListToolbar searchPlaceholder="Search purchase orders…" sortOptions={SORT_OPTIONS}>
+          <ExportCsvButton filename="purchase-orders.csv" rows={csvRows} />
         </ListToolbar>
         <Card className="py-0">
           <CardContent className="p-0">
             {quotations.length === 0 ? (
               <EmptyState
-                title="No quotations match"
-                description="Create a quotation to price a product and quantity for a customer."
+                title="No purchase orders match"
+                description="Create a purchase order to price a product and quantity."
                 icon={<FileText className="size-5" />}
               />
             ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Quotation #</TableHead>
+                  <TableHead>PO #</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>Colour</TableHead>
@@ -121,7 +121,7 @@ export default async function QuotationsPage({
                   <ClickableTableRow
                     key={q.id}
                     href={`/quotations/${q.id}`}
-                    label={`Open quotation ${q.quotationNumber}`}
+                    label={`Open purchase order ${q.quotationNumber}`}
                   >
                     <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
                       {q.quotationNumber}

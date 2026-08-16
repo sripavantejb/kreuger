@@ -1,12 +1,8 @@
 import path from "node:path";
-import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line, Image } from "@react-pdf/renderer";
-import { BRAND_LOGO_URL } from "@/lib/brand";
+import { Document, Page, View, Text, StyleSheet, Image } from "@react-pdf/renderer";
+import { BRAND_LOGO_URL, COMPANY } from "@/lib/brand";
+import { amountInWordsINR } from "@/lib/amount-in-words";
 
-// react-pdf's Image renders server-side with no browser/DOM: it can only take a
-// data: URI, an absolute http(s) URL, or a filesystem path — and only raster
-// formats (no SVG). Resolve or reject whatever ProductColourImage.imagePath holds
-// so a legacy site-relative .svg placeholder falls back to the schematic glyph
-// instead of failing the whole PDF render.
 function resolvePdfImageSrc(imagePath: string): string | null {
   if (!imagePath) return null;
   const lower = imagePath.toLowerCase();
@@ -17,93 +13,96 @@ function resolvePdfImageSrc(imagePath: string): string | null {
   return null;
 }
 
-// Column widths for the BOQ-style table — sums to 100%.
-const COL = {
-  sr: 4,
-  particular: 12,
-  image: 13,
-  description: 23,
-  location: 10,
-  unit: 6,
-  qty: 8,
-  rate: 12,
-  amount: 12,
-};
+const BORDER = "#222222";
+const MUTED = "#44403c";
 
 const styles = StyleSheet.create({
-  page: { padding: 32, fontSize: 9, color: "#1c1917", fontFamily: "Helvetica" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, marginBottom: 12 },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  page: { padding: 28, fontSize: 8, color: "#1c1917", fontFamily: "Helvetica" },
+  letterhead: { alignItems: "center", marginBottom: 8 },
+  logoRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 4 },
   logo: { width: 28, height: 28 },
-  companyName: { fontSize: 11, fontWeight: 700 },
-  headerRight: { textAlign: "right", color: "#57534e", fontSize: 8 },
-  quotationNumber: { fontSize: 10, fontWeight: 700, color: "#1c1917" },
+  companyName: { fontSize: 12, fontWeight: 700, textAlign: "center" },
+  companyLine: { fontSize: 7.5, color: MUTED, textAlign: "center", marginTop: 1 },
+  titleBar: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingVertical: 5,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  titleText: { fontSize: 11, fontWeight: 700, letterSpacing: 1 },
 
-  titleBar: { backgroundColor: "#dedcd3", borderWidth: 1, borderColor: "#8a8578", paddingVertical: 6, alignItems: "center" },
-  titleText: { fontSize: 11, fontWeight: 700 },
+  metaGrid: { flexDirection: "row", borderWidth: 1, borderColor: BORDER, marginBottom: 6 },
+  metaCol: { width: "50%", padding: 6 },
+  metaColRight: { width: "50%", padding: 6, borderLeftWidth: 1, borderLeftColor: BORDER },
+  metaRow: { flexDirection: "row", marginBottom: 2 },
+  metaLabel: { width: "42%", color: MUTED },
+  metaValue: { width: "58%", fontWeight: 700 },
 
-  table: { borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#8a8578" },
-  headRow: { flexDirection: "row", backgroundColor: "#dedcd3", borderBottomWidth: 1, borderColor: "#8a8578" },
-  headCell: { fontSize: 8, fontWeight: 700, textAlign: "center", paddingVertical: 5, paddingHorizontal: 3, borderRightWidth: 1, borderColor: "#c2beb0" },
+  partyRow: { flexDirection: "row", gap: 0, marginBottom: 6 },
+  partyBox: { width: "50%", borderWidth: 1, borderColor: BORDER },
+  partyBoxRight: { width: "50%", borderWidth: 1, borderColor: BORDER, borderLeftWidth: 0 },
+  partyHead: { backgroundColor: "#f2f2f2", paddingVertical: 4, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: BORDER },
+  partyHeadText: { fontSize: 8, fontWeight: 700 },
+  partyBody: { padding: 6, minHeight: 56 },
+  partyLine: { marginBottom: 2 },
 
-  dataRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#c2beb0" },
-  cell: { fontSize: 8.5, paddingVertical: 6, paddingHorizontal: 4, borderRightWidth: 1, borderColor: "#c2beb0", justifyContent: "flex-start" },
+  table: { borderWidth: 1, borderColor: BORDER },
+  headRow: { flexDirection: "row", backgroundColor: "#f2f2f2", borderBottomWidth: 1, borderBottomColor: BORDER },
+  headCell: {
+    fontSize: 6.5,
+    fontWeight: 700,
+    textAlign: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    borderRightWidth: 1,
+    borderRightColor: BORDER,
+  },
+  dataRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: BORDER, minHeight: 48 },
+  cell: {
+    fontSize: 7.5,
+    paddingVertical: 4,
+    paddingHorizontal: 3,
+    borderRightWidth: 1,
+    borderRightColor: BORDER,
+    justifyContent: "center",
+  },
+  totalRow: { flexDirection: "row", backgroundColor: "#f7f7f7" },
 
-  imageBox: { width: 64, height: 64, borderWidth: 1, borderColor: "#e7e5e4", backgroundColor: "#fafaf9", alignItems: "center", justifyContent: "center", alignSelf: "center" },
-  bullet: { flexDirection: "row", gap: 3, marginBottom: 2 },
-  bulletDot: { color: "#78716c" },
+  bottomRow: { flexDirection: "row", marginTop: 6, gap: 6 },
+  bottomLeft: { width: "58%" },
+  bottomRight: { width: "42%", borderWidth: 1, borderColor: BORDER },
+  blockLabel: { fontWeight: 700, marginBottom: 2 },
+  blockText: { color: MUTED, marginBottom: 6 },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: "#dddddd" },
+  summaryLabel: { color: MUTED },
+  summaryValue: { fontWeight: 700 },
+  summaryStrong: { backgroundColor: "#f2f2f2" },
 
-  footRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#c2beb0" },
-  footLabelCell: { fontSize: 9, fontWeight: 700, textAlign: "right", paddingVertical: 6, paddingHorizontal: 8 },
-  footAmountCell: { fontSize: 9, fontWeight: 700, textAlign: "right", paddingVertical: 6, paddingHorizontal: 8, borderLeftWidth: 1, borderColor: "#c2beb0" },
-  grandTotalRow: { backgroundColor: "#efece3" },
-
-  footer: { marginTop: 20, paddingTop: 10, borderTop: 1, borderColor: "#e7e5e4", color: "#78716c", fontSize: 8 },
+  signRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 24 },
+  signLeft: { width: "45%" },
+  signRight: { width: "45%", alignItems: "flex-end" },
+  signLine: { marginTop: 28, borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 4, width: 140, textAlign: "center" },
+  footer: { marginTop: 16, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#dddddd", fontSize: 6.5, color: MUTED },
 });
 
 function formatINR(n: number) {
-  return `Rs. ${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(n)}`;
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(n);
 }
 function formatNumber(n: number) {
   return new Intl.NumberFormat("en-IN").format(n);
 }
-function formatDate(d: Date) {
+function formatDate(d: Date | null | undefined) {
+  if (!d) return "—";
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(d);
 }
 
-function ChairGlyph({ hex, outline }: { hex: string; outline: string }) {
+function MetaLine({ label, value }: { label: string; value: string }) {
   return (
-    <Svg width={56} height={56} viewBox="0 0 400 400">
-      <Rect x={0} y={0} width={400} height={400} fill="#fafaf9" />
-      <Rect x={120} y={70} width={160} height={140} rx={14} fill={hex} stroke={outline} strokeWidth={4} />
-      <Rect x={120} y={220} width={160} height={24} rx={6} fill={hex} stroke={outline} strokeWidth={4} />
-      <Line x1={140} y1={244} x2={130} y2={330} stroke={outline} strokeWidth={4} />
-      <Line x1={260} y1={244} x2={270} y2={330} stroke={outline} strokeWidth={4} />
-      <Line x1={150} y1={244} x2={145} y2={300} stroke={outline} strokeWidth={4} />
-      <Line x1={250} y1={244} x2={255} y2={300} stroke={outline} strokeWidth={4} />
-      <Line x1={130} y1={330} x2={270} y2={330} stroke={outline} strokeWidth={4} />
-    </Svg>
-  );
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-function SwatchGlyph({ hex, name }: { hex: string; name: string }) {
-  return (
-    <View
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: hex,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: 700 }}>{initials(name)}</Text>
+    <View style={styles.metaRow}>
+      <Text style={styles.metaLabel}>{label}</Text>
+      <Text style={styles.metaValue}>: {value || "—"}</Text>
     </View>
   );
 }
@@ -114,15 +113,33 @@ export type QuotationPdfData = {
   productName: string;
   productCode: string;
   description: string;
+  hsnCode: string;
   imagePath: string;
   colourName: string;
-  colourHex: string;
-  colourOutlineHex: string;
   location: string;
   quantity: number;
   unitRate: number;
   lineTotal: number;
   gstPercent: number;
+  discountPercent: number;
+  vendorName: string;
+  vendorAddress: string;
+  vendorState: string;
+  vendorStateCode: string;
+  vendorGstin: string;
+  shipToName: string;
+  shipToAddress: string;
+  shipToState: string;
+  shipToStateCode: string;
+  shipToGstin: string;
+  deliveryDate: Date | null;
+  contactPerson: string;
+  contactPhone: string;
+  contactEmail: string;
+  buyerName: string;
+  vendorRefNo: string;
+  remarks: string;
+  paymentTerms: string;
 };
 
 export function QuotationDocument({ data }: { data: QuotationPdfData }) {
@@ -130,98 +147,235 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
-  const gstAmount = (data.lineTotal * data.gstPercent) / 100;
-  const grandTotal = data.lineTotal + gstAmount;
+  const discountPct = data.discountPercent || 0;
+  const taxable = data.lineTotal * (1 - discountPct / 100);
+  const cgstRate = data.gstPercent / 2;
+  const sgstRate = data.gstPercent / 2;
+  const cgstAmt = (taxable * cgstRate) / 100;
+  const sgstAmt = (taxable * sgstRate) / 100;
+  const totalGst = cgstAmt + sgstAmt;
+  const grandTotalRaw = taxable + totalGst;
+  const grandTotal = Math.round(grandTotalRaw);
+  const rounding = grandTotal - grandTotalRaw;
   const pdfImageSrc = resolvePdfImageSrc(data.imagePath);
+
+  const descLines = [
+    data.productName,
+    data.location ? `Location: ${data.location}` : null,
+    `Colour: ${data.colourName}`,
+    ...specs.slice(0, 4),
+  ].filter(Boolean) as string[];
+
+  // Column widths % — must sum to 100
+  const W = {
+    sr: 4,
+    desc: 22,
+    hsn: 8,
+    qty: 7,
+    uom: 5,
+    rate: 8,
+    disc: 5,
+    taxable: 9,
+    cgstR: 5,
+    cgstA: 7,
+    sgstR: 5,
+    sgstA: 7,
+    total: 8,
+  };
 
   return (
     <Document title={data.quotationNumber}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop */}
+        <View style={styles.letterhead}>
+          <View style={styles.logoRow}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image */}
             <Image src={BRAND_LOGO_URL} style={styles.logo} />
-            <Text style={styles.companyName}>Kreuger Furniture Works</Text>
+            <Text style={styles.companyName}>{COMPANY.legalName}</Text>
           </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.quotationNumber}>{data.quotationNumber}</Text>
-            <Text>{formatDate(data.date)}</Text>
-          </View>
+          {COMPANY.addressLines.map((line) => (
+            <Text key={line} style={styles.companyLine}>
+              {line}
+            </Text>
+          ))}
+          <Text style={styles.companyLine}>
+            Email: {COMPANY.email} | Phone: {COMPANY.phone}
+          </Text>
+          <Text style={styles.companyLine}>
+            PAN: {COMPANY.pan} | GSTIN: {COMPANY.gstin} | CIN: {COMPANY.cin}
+          </Text>
         </View>
 
         <View style={styles.titleBar}>
-          <Text style={styles.titleText}>Bill Of Quantities - {data.productName}</Text>
+          <Text style={styles.titleText}>PURCHASE ORDER</Text>
+        </View>
+
+        <View style={styles.metaGrid}>
+          <View style={styles.metaCol}>
+            <MetaLine label="PO No." value={data.quotationNumber} />
+            <MetaLine label="PO Date" value={formatDate(data.date)} />
+            <MetaLine label="State" value={COMPANY.state} />
+            <MetaLine label="State Code" value={COMPANY.stateCode} />
+            <MetaLine label="Place of Supply" value={data.shipToState || COMPANY.state} />
+          </View>
+          <View style={styles.metaColRight}>
+            <MetaLine label="Document Date" value={formatDate(data.date)} />
+            <MetaLine label="Delivery Date" value={formatDate(data.deliveryDate)} />
+            <MetaLine label="Contact Person" value={data.contactPerson} />
+            <MetaLine label="Phone No." value={data.contactPhone} />
+            <MetaLine label="Email" value={data.contactEmail} />
+            <MetaLine label="Buyer" value={data.buyerName} />
+            <MetaLine label="Vendor Ref No." value={data.vendorRefNo} />
+          </View>
+        </View>
+
+        <View style={styles.partyRow}>
+          <View style={styles.partyBox}>
+            <View style={styles.partyHead}>
+              <Text style={styles.partyHeadText}>Details of Vendor</Text>
+            </View>
+            <View style={styles.partyBody}>
+              <Text style={[styles.partyLine, { fontWeight: 700 }]}>{data.vendorName || "—"}</Text>
+              <Text style={styles.partyLine}>{data.vendorAddress || "—"}</Text>
+              <Text style={styles.partyLine}>
+                State: {data.vendorState || "—"} | Code: {data.vendorStateCode || "—"}
+              </Text>
+              <Text style={styles.partyLine}>GST No.: {data.vendorGstin || "—"}</Text>
+            </View>
+          </View>
+          <View style={styles.partyBoxRight}>
+            <View style={styles.partyHead}>
+              <Text style={styles.partyHeadText}>Ship To Details</Text>
+            </View>
+            <View style={styles.partyBody}>
+              <Text style={[styles.partyLine, { fontWeight: 700 }]}>{data.shipToName || "—"}</Text>
+              <Text style={styles.partyLine}>{data.shipToAddress || "—"}</Text>
+              <Text style={styles.partyLine}>
+                State: {data.shipToState || "—"} | Code: {data.shipToStateCode || "—"}
+              </Text>
+              <Text style={styles.partyLine}>GST No.: {data.shipToGstin || "—"}</Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.table}>
           <View style={styles.headRow}>
-            <Text style={[styles.headCell, { width: `${COL.sr}%` }]}>Sr</Text>
-            <Text style={[styles.headCell, { width: `${COL.particular}%` }]}>Particular</Text>
-            <Text style={[styles.headCell, { width: `${COL.image}%` }]}>Image</Text>
-            <Text style={[styles.headCell, { width: `${COL.description}%` }]}>Description</Text>
-            <Text style={[styles.headCell, { width: `${COL.location}%` }]}>Location</Text>
-            <Text style={[styles.headCell, { width: `${COL.unit}%` }]}>Unit</Text>
-            <Text style={[styles.headCell, { width: `${COL.qty}%` }]}>Qty</Text>
-            <Text style={[styles.headCell, { width: `${COL.rate}%` }]}>Rate</Text>
-            <Text style={[styles.headCell, { width: `${COL.amount}%`, borderRightWidth: 0 }]}>Amount</Text>
+            <Text style={[styles.headCell, { width: `${W.sr}%` }]}>Sr.</Text>
+            <Text style={[styles.headCell, { width: `${W.desc}%` }]}>Description of Goods/Services</Text>
+            <Text style={[styles.headCell, { width: `${W.hsn}%` }]}>HSN/SAC</Text>
+            <Text style={[styles.headCell, { width: `${W.qty}%` }]}>Qty</Text>
+            <Text style={[styles.headCell, { width: `${W.uom}%` }]}>UOM</Text>
+            <Text style={[styles.headCell, { width: `${W.rate}%` }]}>Rate [INR]</Text>
+            <Text style={[styles.headCell, { width: `${W.disc}%` }]}>Disc %</Text>
+            <Text style={[styles.headCell, { width: `${W.taxable}%` }]}>Taxable Value</Text>
+            <Text style={[styles.headCell, { width: `${W.cgstR}%` }]}>CGST %</Text>
+            <Text style={[styles.headCell, { width: `${W.cgstA}%` }]}>CGST Amt</Text>
+            <Text style={[styles.headCell, { width: `${W.sgstR}%` }]}>SGST %</Text>
+            <Text style={[styles.headCell, { width: `${W.sgstA}%` }]}>SGST Amt</Text>
+            <Text style={[styles.headCell, { width: `${W.total}%`, borderRightWidth: 0 }]}>Total</Text>
           </View>
 
           <View style={styles.dataRow}>
-            <Text style={[styles.cell, { width: `${COL.sr}%` }]}>1</Text>
-            <Text style={[styles.cell, { width: `${COL.particular}%`, fontWeight: 700 }]}>{data.productName}</Text>
-            <View style={[styles.cell, { width: `${COL.image}%`, alignItems: "center" }]}>
-              <View style={styles.imageBox}>
-                {pdfImageSrc ? (
-                  // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop
-                  <Image src={pdfImageSrc} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : data.productCode === "MASTRO" ? (
-                  <ChairGlyph hex={data.colourHex} outline={data.colourOutlineHex} />
-                ) : (
-                  <SwatchGlyph hex={data.colourHex} name={data.productName} />
-                )}
-              </View>
+            <Text style={[styles.cell, { width: `${W.sr}%`, textAlign: "center" }]}>1</Text>
+            <View style={[styles.cell, { width: `${W.desc}%` }]}>
+              {descLines.map((line, i) => (
+                <Text key={i} style={{ marginBottom: 1, fontWeight: i === 0 ? 700 : 400 }}>
+                  {line}
+                </Text>
+              ))}
+              {pdfImageSrc ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image
+                <Image src={pdfImageSrc} style={{ width: 40, height: 40, marginTop: 4 }} />
+              ) : null}
             </View>
-            <View style={[styles.cell, { width: `${COL.description}%` }]}>
-              {specs.length > 0 ? (
-                specs.map((s, i) => (
-                  <View key={i} style={styles.bullet}>
-                    <Text style={styles.bulletDot}>•</Text>
-                    <Text>{s}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={{ color: "#a8a29e" }}>—</Text>
-              )}
-              <View style={[styles.bullet, { marginTop: 3 }]}>
-                <Text style={styles.bulletDot}>•</Text>
-                <Text>Colour: {data.colourName}</Text>
-              </View>
-            </View>
-            <Text style={[styles.cell, { width: `${COL.location}%` }]}>{data.location || "—"}</Text>
-            <Text style={[styles.cell, { width: `${COL.unit}%`, textAlign: "center" }]}>Nos</Text>
-            <Text style={[styles.cell, { width: `${COL.qty}%`, textAlign: "right" }]}>{formatNumber(data.quantity)}</Text>
-            <Text style={[styles.cell, { width: `${COL.rate}%`, textAlign: "right" }]}>{formatINR(data.unitRate)}</Text>
-            <Text style={[styles.cell, { width: `${COL.amount}%`, textAlign: "right", borderRightWidth: 0 }]}>
-              {formatINR(data.lineTotal)}
+            <Text style={[styles.cell, { width: `${W.hsn}%`, textAlign: "center" }]}>{data.hsnCode || "—"}</Text>
+            <Text style={[styles.cell, { width: `${W.qty}%`, textAlign: "right" }]}>{formatNumber(data.quantity)}</Text>
+            <Text style={[styles.cell, { width: `${W.uom}%`, textAlign: "center" }]}>Nos</Text>
+            <Text style={[styles.cell, { width: `${W.rate}%`, textAlign: "right" }]}>{formatINR(data.unitRate)}</Text>
+            <Text style={[styles.cell, { width: `${W.disc}%`, textAlign: "right" }]}>{formatINR(discountPct)}</Text>
+            <Text style={[styles.cell, { width: `${W.taxable}%`, textAlign: "right" }]}>{formatINR(taxable)}</Text>
+            <Text style={[styles.cell, { width: `${W.cgstR}%`, textAlign: "right" }]}>{formatINR(cgstRate)}</Text>
+            <Text style={[styles.cell, { width: `${W.cgstA}%`, textAlign: "right" }]}>{formatINR(cgstAmt)}</Text>
+            <Text style={[styles.cell, { width: `${W.sgstR}%`, textAlign: "right" }]}>{formatINR(sgstRate)}</Text>
+            <Text style={[styles.cell, { width: `${W.sgstA}%`, textAlign: "right" }]}>{formatINR(sgstAmt)}</Text>
+            <Text style={[styles.cell, { width: `${W.total}%`, textAlign: "right", borderRightWidth: 0, fontWeight: 700 }]}>
+              {formatINR(taxable + totalGst)}
             </Text>
           </View>
 
-          <View style={styles.footRow}>
-            <Text style={[styles.footLabelCell, { width: `${100 - COL.amount}%` }]}>Total</Text>
-            <Text style={[styles.footAmountCell, { width: `${COL.amount}%` }]}>{formatINR(data.lineTotal)}</Text>
+          <View style={styles.totalRow}>
+            <Text style={[styles.cell, { width: `${W.sr + W.desc + W.hsn}%`, fontWeight: 700 }]}>Total</Text>
+            <Text style={[styles.cell, { width: `${W.qty}%`, textAlign: "right", fontWeight: 700 }]}>
+              {formatNumber(data.quantity)}
+            </Text>
+            <Text style={[styles.cell, { width: `${W.uom + W.rate + W.disc}%` }]} />
+            <Text style={[styles.cell, { width: `${W.taxable}%`, textAlign: "right", fontWeight: 700 }]}>
+              {formatINR(taxable)}
+            </Text>
+            <Text style={[styles.cell, { width: `${W.cgstR}%` }]} />
+            <Text style={[styles.cell, { width: `${W.cgstA}%`, textAlign: "right", fontWeight: 700 }]}>
+              {formatINR(cgstAmt)}
+            </Text>
+            <Text style={[styles.cell, { width: `${W.sgstR}%` }]} />
+            <Text style={[styles.cell, { width: `${W.sgstA}%`, textAlign: "right", fontWeight: 700 }]}>
+              {formatINR(sgstAmt)}
+            </Text>
+            <Text style={[styles.cell, { width: `${W.total}%`, textAlign: "right", borderRightWidth: 0, fontWeight: 700 }]}>
+              {formatINR(taxable + totalGst)}
+            </Text>
           </View>
-          <View style={styles.footRow}>
-            <Text style={[styles.footLabelCell, { width: `${100 - COL.amount}%` }]}>GST ({data.gstPercent}%)</Text>
-            <Text style={[styles.footAmountCell, { width: `${COL.amount}%` }]}>{formatINR(gstAmount)}</Text>
+        </View>
+
+        <View style={styles.bottomRow}>
+          <View style={styles.bottomLeft}>
+            <Text style={styles.blockLabel}>Remarks</Text>
+            <Text style={styles.blockText}>{data.remarks || "—"}</Text>
+            <Text style={styles.blockLabel}>Amount In Words</Text>
+            <Text style={styles.blockText}>{amountInWordsINR(grandTotal)}</Text>
+            <Text style={styles.blockLabel}>Payment Terms</Text>
+            <Text style={styles.blockText}>{data.paymentTerms || "—"}</Text>
           </View>
-          <View style={[styles.footRow, styles.grandTotalRow, { borderBottomWidth: 0 }]}>
-            <Text style={[styles.footLabelCell, { width: `${100 - COL.amount}%` }]}>Grand Total</Text>
-            <Text style={[styles.footAmountCell, { width: `${COL.amount}%` }]}>{formatINR(grandTotal)}</Text>
+          <View style={styles.bottomRight}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Total Amount Before Tax</Text>
+              <Text style={styles.summaryValue}>{formatINR(taxable)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Add: CGST ({formatINR(cgstRate)}%)</Text>
+              <Text style={styles.summaryValue}>{formatINR(cgstAmt)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Add: SGST ({formatINR(sgstRate)}%)</Text>
+              <Text style={styles.summaryValue}>{formatINR(sgstAmt)}</Text>
+            </View>
+            <View style={[styles.summaryRow, styles.summaryStrong]}>
+              <Text style={[styles.summaryLabel, { fontWeight: 700 }]}>Total GST</Text>
+              <Text style={styles.summaryValue}>{formatINR(totalGst)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Rounding</Text>
+              <Text style={styles.summaryValue}>{formatINR(rounding)}</Text>
+            </View>
+            <View style={[styles.summaryRow, styles.summaryStrong, { borderBottomWidth: 0 }]}>
+              <Text style={[styles.summaryLabel, { fontWeight: 700 }]}>Total Amount</Text>
+              <Text style={styles.summaryValue}>{formatINR(grandTotal)}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.signRow}>
+          <View style={styles.signLeft}>
+            <Text>Prepared by: ________________</Text>
+            <Text style={{ marginTop: 10 }}>Checked By & Date: ________________</Text>
+          </View>
+          <View style={styles.signRight}>
+            <Text style={{ textAlign: "right" }}>For, {COMPANY.legalName}</Text>
+            <Text style={styles.signLine}>Authorised Signatory</Text>
           </View>
         </View>
 
         <View style={styles.footer}>
-          <Text>Prices in INR. Valid for 30 days from the date of issue.</Text>
+          <Text>{COMPANY.registeredOffice}</Text>
+          <Text>Page 1 of 1</Text>
         </View>
       </Page>
     </Document>

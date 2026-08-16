@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { QuotationPreview } from "@/components/quotations/quotation-preview";
 import { PrintButton } from "@/components/quotations/print-button";
+import { toQuotationPreviewData } from "@/lib/quotation-doc-data";
 
 export const dynamic = "force-dynamic";
 
@@ -21,27 +22,11 @@ export default async function QuotationPrintPage({ params }: { params: Promise<{
   });
 
   return (
-    <div className="mx-auto max-w-2xl px-4 sm:px-6 md:px-8 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 md:px-8">
       <div className="no-print mb-4 flex justify-end">
         <PrintButton />
       </div>
-      <QuotationPreview
-        data={{
-          quotationNumber: quotation.quotationNumber,
-          date: quotation.createdAt,
-          productName: quotation.product.name,
-          productCode: quotation.product.code,
-          description: quotation.product.description,
-          imagePath: image?.imagePath ?? "",
-          colourName: quotation.colour.name,
-          colourHex: quotation.colour.hexCode,
-          location: quotation.location,
-          quantity: quotation.quantity,
-          unitRate: quotation.unitRate,
-          lineTotal: quotation.lineTotal,
-          gstPercent: settings.gstPercent,
-        }}
-      />
+      <QuotationPreview data={toQuotationPreviewData(quotation, image?.imagePath ?? "", settings.gstPercent)} />
     </div>
   );
 }
