@@ -41,6 +41,7 @@ async function main() {
       procurementDays: 3,
       rampDays: 1.5,
       shiftHours: 8,
+      gstPercent: 18,
       plantHeadName: "Plant Head",
       plantHeadEmail: "plant.head@kreuger.local",
       procurementHeadName: "Procurement Head",
@@ -117,12 +118,24 @@ async function main() {
   const directory = await getContactDirectory();
 
   const mastro = await prisma.product.create({
-    data: { name: "Mastro", code: "MASTRO", baseRate: 4500 },
+    data: {
+      name: "Mastro",
+      code: "MASTRO",
+      baseRate: 4500,
+      description:
+        "Medium back mesh task chair\nSelf-calibrating multilock with seat slide mechanism\nAdjustable lumbar support\nThree-way adjustable armrests (height, swivel, front and back)\nNylon base with 60mm castors\nFabric-upholstered cushion seat",
+    },
   });
 
   // Second product — proves the model isn't hardcoded to a single item.
   const nova = await prisma.product.create({
-    data: { name: "Nova", code: "NOVA", baseRate: 6200 },
+    data: {
+      name: "Nova",
+      code: "NOVA",
+      baseRate: 6200,
+      description:
+        "High back executive chair\nMoulded foam seat and back cushion\nSynchro-tilt mechanism with tension control\nPolished aluminium base with 65mm castors\nHeight-adjustable headrest",
+    },
   });
 
   const colours = await Promise.all(

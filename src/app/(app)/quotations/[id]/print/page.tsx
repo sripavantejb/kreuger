@@ -3,10 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { QuotationPreview } from "@/components/quotations/quotation-preview";
 import { PrintButton } from "@/components/quotations/print-button";
 
-const PRODUCT_DESCRIPTIONS: Record<string, string> = {
-  MASTRO: "Ergonomic visitor chair with a moulded shell, fabricated steel frame and powder-coated finish.",
-};
-
 export const dynamic = "force-dynamic";
 
 export default async function QuotationPrintPage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,10 +31,11 @@ export default async function QuotationPrintPage({ params }: { params: Promise<{
           date: quotation.createdAt,
           productName: quotation.product.name,
           productCode: quotation.product.code,
-          description: PRODUCT_DESCRIPTIONS[quotation.product.code] ?? "",
+          description: quotation.product.description,
           imagePath: image?.imagePath ?? "",
           colourName: quotation.colour.name,
           colourHex: quotation.colour.hexCode,
+          location: quotation.location,
           quantity: quotation.quantity,
           unitRate: quotation.unitRate,
           lineTotal: quotation.lineTotal,

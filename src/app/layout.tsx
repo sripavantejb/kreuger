@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { BRAND_LOGO_URL } from "@/lib/brand";
 
 /* Inter is the open-source substitute for Airbnb Cereal (see DESIGN.md) */
 const inter = Inter({
@@ -13,8 +14,8 @@ export const metadata: Metadata = {
   title: "Kreuger Ops Console",
   description: "Manufacturing operations dashboard",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: BRAND_LOGO_URL,
+    apple: BRAND_LOGO_URL,
   },
 };
 

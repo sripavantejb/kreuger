@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { BRAND_LOGO_URL } from "@/lib/brand";
 
 const SIZES = {
   sm: { box: "size-7", px: 28 },
@@ -20,7 +21,7 @@ export function BrandLogo({
   const { box, px } = SIZES[size];
   return (
     <Image
-      src="/logo.png"
+      src={BRAND_LOGO_URL}
       alt="Kreuger"
       width={px}
       height={px}
