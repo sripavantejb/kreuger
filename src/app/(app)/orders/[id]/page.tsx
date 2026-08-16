@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { syncBreaches } from "@/lib/breach";
 import { getSession, roleAtLeast } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Users2 } from "lucide-react";
 import { StageTracker } from "@/components/orders/stage-tracker";
 import { StageBreakdown } from "@/components/orders/stage-breakdown";
 import { AdvanceStageButton } from "@/components/orders/advance-stage-button";
@@ -58,6 +61,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             >
               {oc.status.replace("_", " ")}
             </Badge>
+            <Button variant="outline" nativeButton={false} render={<Link href={`/manpower/${oc.id}`} />}>
+              <Users2 /> Manpower plan
+            </Button>
             {active && canWrite && <CancelOrderButton ocId={oc.id} ocNumber={oc.ocNumber} />}
           </div>
         }

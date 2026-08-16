@@ -10,12 +10,14 @@ import {
   BellRing,
   Database,
   BarChart3,
+  Users2,
 } from "lucide-react";
 
 const links = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/quotations", label: "Quotations", icon: FileText },
   { href: "/orders", label: "Orders", icon: ClipboardList },
+  { href: "/manpower", label: "Manpower efficiency", icon: Users2 },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/alerts", label: "Alerts", icon: BellRing },
   { href: "/master-data", label: "Master data", icon: Database },

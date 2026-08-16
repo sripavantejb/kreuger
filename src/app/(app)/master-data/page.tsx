@@ -6,6 +6,7 @@ import { DepartmentsTable } from "@/components/master-data/departments-table";
 import { ProductsTable } from "@/components/master-data/products-table";
 import { RecipientsForm } from "@/components/master-data/recipients-form";
 import { SettingsForm } from "@/components/master-data/settings-form";
+import { WeeklyOffForm } from "@/components/master-data/weekly-off-form";
 import { UsersTable } from "@/components/master-data/users-table";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,12 @@ export default async function MasterDataPage() {
   const session = await getSession();
   const isAdmin = session ? roleAtLeast(session.role, "ADMIN") : false;
 
-  const [departments, products, settings, users] = await Promise.all([
+  const [departments, products, settings, users, holidays] = await Promise.all([
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
     prisma.product.findMany({ orderBy: { name: "asc" } }),
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
     isAdmin ? prisma.user.findMany({ orderBy: { createdAt: "asc" } }) : Promise.resolve([]),
+    prisma.holiday.findMany({ orderBy: { date: "asc" } }),
   ]);
 
   return (
@@ -56,8 +58,9 @@ export default async function MasterDataPage() {
               readOnly={!isAdmin}
             />
           </TabsContent>
-          <TabsContent value="settings" className="mt-4">
+          <TabsContent value="settings" className="mt-4 space-y-8">
             <SettingsForm settings={settings} readOnly={!isAdmin} />
+            <WeeklyOffForm weeklyOff={settings.weeklyOff} holidays={holidays} readOnly={!isAdmin} />
           </TabsContent>
           {isAdmin && session && (
             <TabsContent value="users" className="mt-4">

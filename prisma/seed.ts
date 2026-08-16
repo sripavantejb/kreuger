@@ -5,12 +5,17 @@ import { computeUnitRate } from "../src/lib/pricing";
 import { buildStageList, PROCUREMENT_STAGE, FINISHED_GOODS_STAGE } from "../src/lib/stages";
 import { buildDeadlineBreachAlert, buildStageEntryAlert, getContactDirectory } from "../src/lib/alerts";
 import { hashPassword } from "../src/lib/auth";
+import { planManpower, type ManpowerDepartment } from "../src/lib/manpower";
+import { workingDaysBetween } from "../src/lib/working-days";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const now = new Date();
 const daysAgo = (d: number) => new Date(now.getTime() - d * DAY_MS);
 
 async function reset() {
+  await prisma.manpowerPlanLine.deleteMany();
+  await prisma.manpowerPlan.deleteMany();
+  await prisma.holiday.deleteMany();
   await prisma.alert.deleteMany();
   await prisma.ocStageEvent.deleteMany();
   await prisma.ocDepartmentPlan.deleteMany();
@@ -527,6 +532,54 @@ async function main() {
       createdAt: pcExit,
     },
   });
+
+  // Manpower efficiency module: seed a default plan per OC, matching what
+  // the live app's OC-creation hook would produce, so /manpower has real
+  // content on first visit.
+  const mastroMaterials = await prisma.productMaterial.findMany({ where: { productId: mastro.id } });
+  const wdConfig = { weeklyOff: settings.weeklyOff, holidays: [] as Date[] };
+  const manpowerConstants = {
+    procurementWorkingDays: settings.procurementDays,
+    rampDays: settings.rampDays,
+    shiftHours: settings.shiftHours,
+  };
+
+  async function seedManpowerPlan(ocId: string, quantity: number, startDate: Date, targetDays: number) {
+    const endDate = new Date(startDate.getTime() + targetDays * DAY_MS);
+    const workingDays = workingDaysBetween(startDate, endDate, wdConfig);
+    const result = planManpower(quantity, workingDays, planningDepartments as ManpowerDepartment[], manpowerConstants, mastroMaterials);
+    const plan = await prisma.manpowerPlan.create({
+      data: {
+        ocId,
+        startDate,
+        endDate,
+        workingDays,
+        requiredRate: result.requiredRate ?? undefined,
+        status: result.status,
+      },
+    });
+    if (result.status === "achievable") {
+      await Promise.all(
+        result.lines.map((l) =>
+          prisma.manpowerPlanLine.create({
+            data: {
+              planId: plan.id,
+              departmentId: l.departmentId,
+              workersRequired: l.workers,
+              workingDays: l.workingDays,
+              workingHours: l.workingHours,
+              manHours: l.manHours,
+              utilisation: l.utilisation,
+            },
+          })
+        )
+      );
+    }
+  }
+
+  await seedManpowerPlan(oc1.id, 100, daysAgo(3), 14);
+  await seedManpowerPlan(oc2.id, 250, daysAgo(5), 25);
+  await seedManpowerPlan(oc3.id, 50, daysAgo(19), 10);
 
   console.log("Seed complete.");
   console.log(`Stages: ${stageList.join(" -> ")}`);

@@ -13,11 +13,17 @@ datasource db {
 
 // Singleton row (id = 1) holding the tunable constants from the planning spec,
 // plus the escalation contacts used when building Alerts.
+//
+// Doubles as the manpower-efficiency module's "PlanningConstants": procurementDays
+// / rampDays / shiftHours are the same figures both scenarios share, just read as
+// working days by the manpower module instead of calendar days. weeklyOff is the
+// only field that module needed and this table didn't already have.
 model Settings {
   id             Int   @id @map("_id")
   procurementDays Float @default(3)
   rampDays        Float @default(1.5)
   shiftHours      Float @default(8)
+  weeklyOff       String[] @default(["Sunday"]) // day-of-week names, e.g. "Sunday"
 
   plantHeadName        String @default("Plant Head")
   plantHeadEmail       String @default("plant.head@kreuger.local")
@@ -25,6 +31,13 @@ model Settings {
   procurementHeadEmail String @default("procurement.head@kreuger.local")
   dispatchHeadName     String @default("Dispatch Head")
   dispatchHeadEmail    String @default("dispatch.head@kreuger.local")
+}
+
+// Named holidays excluded from working-day counts, alongside weeklyOff.
+model Holiday {
+  id   String   @id @default(auto()) @map("_id") @db.ObjectId
+  date DateTime
+  name String
 }
 
 // One user. Manager level. Desktop. — now Admin / Manager / Viewer.
@@ -86,6 +99,7 @@ model Department {
 
   productRates ProductDepartmentRate[]
   ocPlans      OcDepartmentPlan[]
+  manpowerPlanLines ManpowerPlanLine[]
 }
 
 // Optional per-product override of a department's default rate/ceiling.
@@ -155,6 +169,7 @@ model OrderConfirmation {
   plan   OcDepartmentPlan[]
   events OcStageEvent[]
   alerts Alert[]
+  manpowerPlan ManpowerPlan?
 }
 
 model OcDepartmentPlan {
@@ -180,6 +195,38 @@ model OcStageEvent {
   breached      Boolean   @default(false)
 
   oc OrderConfirmation @relation(fields: [ocId], references: [id], onDelete: Cascade)
+}
+
+// Manpower-efficiency module — Feature spec "Manpower efficiency module".
+// One plan per OC (re-computed on every range change, persisted only on
+// explicit Save), distinct from OcDepartmentPlan, which is the immutable
+// record of the plan made at OC creation time under Scenario 3.
+model ManpowerPlan {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  ocId          String   @unique @db.ObjectId
+  startDate     DateTime
+  endDate       DateTime
+  workingDays   Float
+  requiredRate  Float?
+  status        String   // achievable | blocked
+  computedAt    DateTime @default(now())
+
+  oc    OrderConfirmation  @relation(fields: [ocId], references: [id], onDelete: Cascade)
+  lines ManpowerPlanLine[]
+}
+
+model ManpowerPlanLine {
+  id              String @id @default(auto()) @map("_id") @db.ObjectId
+  planId          String @db.ObjectId
+  departmentId    String @db.ObjectId
+  workersRequired Int
+  workingDays     Float
+  workingHours    Float
+  manHours        Float
+  utilisation     Float // requiredRate / ceiling, e.g. 0.70 = 70%
+
+  plan       ManpowerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  department Department   @relation(fields: [departmentId], references: [id])
 }
 
 model Alert {

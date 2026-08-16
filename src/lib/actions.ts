@@ -8,6 +8,7 @@ import { buildStageList, nextStage, PROCUREMENT_STAGE, FINISHED_GOODS_STAGE } fr
 import { buildDeadlineBreachAlert, buildStageEntryAlert, getContactDirectory } from "./alerts";
 import { requireRole } from "./auth";
 import { maybeSendAlertEmail } from "./email";
+import { saveManpowerPlan } from "./actions-manpower";
 
 async function nextQuotationNumber(): Promise<string> {
   const year = new Date().getFullYear();
@@ -134,8 +135,23 @@ export async function createOrder(input: {
   const alert = await prisma.alert.create({ data: { ocId: oc.id, ...alertData } });
   await maybeSendAlertEmail(alert);
 
+  // Manpower-efficiency hook: seed a default plan so the OC appears in
+  // /manpower with a computed result on first visit, no retyping needed.
+  // Deliberately thin and non-fatal — a hiccup here must never block OC
+  // creation itself.
+  try {
+    await saveManpowerPlan({
+      ocId: oc.id,
+      startDate: now,
+      endDate: new Date(now.getTime() + input.targetDays * 24 * 60 * 60 * 1000),
+    });
+  } catch (err) {
+    console.error("Failed to seed default manpower plan:", err);
+  }
+
   revalidatePath("/orders");
   revalidatePath("/");
+  revalidatePath("/manpower");
   return oc.id;
 }
 
