@@ -38,8 +38,8 @@ function Tile({
   function handleFile(file: File | undefined) {
     if (!file) return;
     setError(null);
-    if (!file.type.startsWith("image/")) {
-      setError("Choose an image file.");
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
+      setError("Choose a PNG, JPEG or WebP file — not SVG.");
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
@@ -76,7 +76,7 @@ function Tile({
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             className="hidden"
             onChange={(e) => handleFile(e.target.files?.[0])}
           />

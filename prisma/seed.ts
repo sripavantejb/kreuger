@@ -203,6 +203,7 @@ async function main() {
       colourId: colourByName["Black"].id,
       unitRate: q1Rate,
       lineTotal: q1Rate * q1Qty,
+      location: "Workstations",
       createdAt: daysAgo(6),
     },
   });

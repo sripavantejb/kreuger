@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { syncBreaches } from "@/lib/breach";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageBody, SectionTitle } from "@/components/layout/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StageDurationChart } from "@/components/reports/stage-duration-chart";
 import { OnTimeDonut } from "@/components/reports/on-time-donut";
@@ -63,11 +64,11 @@ export default async function ReportsPage() {
         }}
         actions={<ExportCsvButton filename="report-summary.csv" rows={csvRows} />}
       />
-      <div className="space-y-6 px-4 sm:px-6 md:px-8 py-6">
+      <PageBody className="space-y-8">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+          <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Stage duration — planned vs actual
               </CardTitle>
             </CardHeader>
@@ -75,23 +76,17 @@ export default async function ReportsPage() {
               <StageDurationChart data={durationAgg} />
             </CardContent>
           </Card>
-          <Card
-            className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
-            style={{ animationDelay: "80ms" }}
-          >
+          <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">On-time completion</CardTitle>
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">On-time completion</CardTitle>
             </CardHeader>
             <CardContent>
               <OnTimeDonut summary={onTime} />
             </CardContent>
           </Card>
-          <Card
-            className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
-            style={{ animationDelay: "160ms" }}
-          >
+          <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Bottleneck frequency</CardTitle>
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bottleneck frequency</CardTitle>
             </CardHeader>
             <CardContent>
               <BottleneckChart data={bottlenecks} />
@@ -100,7 +95,7 @@ export default async function ReportsPage() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Order summary</h2>
+          <SectionTitle>Order summary</SectionTitle>
           <Card className="py-0">
             <CardContent className="p-0">
               <Table>
@@ -116,12 +111,14 @@ export default async function ReportsPage() {
                 </TableHeader>
                 <TableBody>
                   {ocRows.map(({ oc, breachedCount }) => (
-                    <TableRow key={oc.id} className="h-12">
-                      <TableCell className="font-medium">{oc.ocNumber}</TableCell>
-                      <TableCell>
-                        {oc.product.name} · {oc.colour.name}
+                    <TableRow key={oc.id} className="h-14">
+                      <TableCell className="font-semibold">{oc.ocNumber}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        <span className="text-foreground">{oc.product.name}</span>
+                        <span className="mx-1.5 text-border">·</span>
+                        {oc.colour.name}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatNumber(oc.quantity)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">{formatNumber(oc.quantity)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="border-transparent bg-secondary capitalize text-muted-foreground">
                           {oc.status.replace("_", " ")}
@@ -149,7 +146,7 @@ export default async function ReportsPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </PageBody>
     </div>
   );
 }

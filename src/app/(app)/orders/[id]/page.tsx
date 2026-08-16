@@ -82,7 +82,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         }
       />
 
-      <div className="space-y-8 px-4 sm:px-6 md:px-8 py-6">
+      <div className="space-y-8 px-4 py-6 sm:px-6 md:px-8">
         <Card>
           <CardContent className="space-y-6">
             <StageTracker stageList={stageList} currentStage={oc.currentStage} breachedStages={breachedStages} />

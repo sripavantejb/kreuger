@@ -137,10 +137,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html {
     @apply font-sans;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
   }
 }
 
@@ -151,7 +154,8 @@
 }
 
 @media print {
-  aside {
+  aside,
+  header {
     display: none !important;
   }
   .no-print {
@@ -159,5 +163,8 @@
   }
   body {
     background: white;
+  }
+  main {
+    overflow: visible !important;
   }
 }

@@ -3,13 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { syncBreaches } from "@/lib/breach";
 import { getSession, roleAtLeast } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageBody, EmptyState } from "@/components/layout/page-body";
+import { ClickableTableRow } from "@/components/layout/clickable-table-row";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { deadlineStatus, formatDate, formatNumber, statusClasses } from "@/lib/format";
 import { FINISHED_GOODS_STAGE } from "@/lib/stages";
-import { Plus } from "lucide-react";
+import { Plus, ClipboardList } from "lucide-react";
 import { ListToolbar } from "@/components/layout/list-toolbar";
 import { ExportCsvButton } from "@/components/layout/export-csv-button";
 import type { Prisma } from "@/generated/prisma";
@@ -92,7 +94,7 @@ export default async function OrdersPage({
           )
         }
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6">
+      <PageBody>
         <ListToolbar
           searchPlaceholder="Search orders…"
           filterOptions={STATUS_OPTIONS}
@@ -103,6 +105,13 @@ export default async function OrdersPage({
         </ListToolbar>
         <Card className="py-0">
           <CardContent className="p-0">
+            {ocs.length === 0 ? (
+              <EmptyState
+                title="No orders match"
+                description="Try adjusting filters, or release a new order confirmation."
+                icon={<ClipboardList className="size-5" />}
+              />
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -116,7 +125,7 @@ export default async function OrdersPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ocs.map((oc, i) => {
+                {ocs.map((oc) => {
                   const openEvent = oc.events.find((e) => !e.exitedAt);
                   let status: "ok" | "warn" | "breach" | null = null;
                   if (openEvent) {
@@ -126,23 +135,23 @@ export default async function OrdersPage({
                     status = deadlineStatus(elapsedDays, openEvent.deadlineDays, openEvent.breached);
                   }
                   return (
-                    <TableRow
+                    <ClickableTableRow
                       key={oc.id}
-                      className="h-14 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both"
-                      style={{ animationDelay: `${i * 40}ms` }}
+                      href={`/orders/${oc.id}`}
+                      label={`Open order ${oc.ocNumber}`}
                     >
-                      <TableCell className="font-medium">
-                        <Link href={`/orders/${oc.id}`} className="transition-colors hover:text-primary hover:underline">
-                          {oc.ocNumber}
-                        </Link>
+                      <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
+                        {oc.ocNumber}
                       </TableCell>
-                      <TableCell>
-                        {oc.product.name} · {oc.colour.name}
+                      <TableCell className="relative z-0 text-muted-foreground">
+                        <span className="text-foreground">{oc.product.name}</span>
+                        <span className="mx-1.5 text-border">·</span>
+                        {oc.colour.name}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatNumber(oc.quantity)}</TableCell>
-                      <TableCell>{oc.targetDays} days</TableCell>
-                      <TableCell>{oc.currentStage}</TableCell>
-                      <TableCell>
+                      <TableCell className="relative z-0 text-right tabular-nums font-medium">{formatNumber(oc.quantity)}</TableCell>
+                      <TableCell className="relative z-0 text-muted-foreground">{oc.targetDays} days</TableCell>
+                      <TableCell className="relative z-0">{oc.currentStage}</TableCell>
+                      <TableCell className="relative z-0">
                         <Badge
                           variant="outline"
                           className={`border-transparent capitalize ${
@@ -154,11 +163,11 @@ export default async function OrdersPage({
                           {oc.status.replace("_", " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="relative z-0">
                         {status && oc.currentStage !== FINISHED_GOODS_STAGE && oc.status !== "cancelled" ? (
                           <Badge
                             variant="outline"
-                            className={`${statusClasses[status].text} ${statusClasses[status].bg} border-transparent transition-colors ${status === "breach" ? "animate-pulse" : ""}`}
+                            className={`${statusClasses[status].text} ${statusClasses[status].bg} border-transparent ${status === "breach" ? "animate-pulse" : ""}`}
                           >
                             {statusClasses[status].label}
                           </Badge>
@@ -168,21 +177,15 @@ export default async function OrdersPage({
                           </span>
                         )}
                       </TableCell>
-                    </TableRow>
+                    </ClickableTableRow>
                   );
                 })}
-                {ocs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                      No orders match.
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
-      </div>
+      </PageBody>
     </div>
   );
 }

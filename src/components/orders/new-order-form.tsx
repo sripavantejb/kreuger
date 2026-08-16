@@ -102,7 +102,7 @@ export function NewOrderForm({
   }
 
   if (!product || !colour) {
-    return <div className="px-4 sm:px-6 md:px-8 py-6 text-sm text-muted-foreground">No product master data found.</div>;
+    return <div className="px-4 py-6 sm:px-6 md:px-8 text-sm text-muted-foreground">No product master data found.</div>;
   }
 
   return (

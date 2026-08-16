@@ -138,8 +138,8 @@ export async function updateProductColourImage(input: {
   imageDataUrl: string;
 }) {
   await requireRole("ADMIN");
-  if (!input.imageDataUrl.startsWith("data:image/")) {
-    throw new Error("Expected an image file.");
+  if (!input.imageDataUrl.startsWith("data:image/") || input.imageDataUrl.startsWith("data:image/svg+xml")) {
+    throw new Error("Expected a PNG, JPEG or WebP image file.");
   }
   if (input.imageDataUrl.length > MAX_IMAGE_DATA_URI_LENGTH) {
     throw new Error("Image is too large — please use a file under 3MB.");

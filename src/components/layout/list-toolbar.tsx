@@ -54,14 +54,14 @@ export function ListToolbar({
   }, [q]);
 
   return (
-    <div className="flex flex-col gap-2 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="mb-5 flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:p-3.5">
       <div className="relative w-full sm:w-64 sm:shrink-0">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder={searchPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="pl-7"
+          className="border-transparent bg-secondary/50 pl-8 focus-visible:border-foreground focus-visible:bg-background"
         />
       </div>
 

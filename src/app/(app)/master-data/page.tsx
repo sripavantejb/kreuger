@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, roleAtLeast } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageBody } from "@/components/layout/page-body";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DepartmentsTable } from "@/components/master-data/departments-table";
 import { ProductsTable } from "@/components/master-data/products-table";
@@ -44,9 +45,9 @@ export default async function MasterDataPage() {
           ),
         }}
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6">
+      <PageBody>
         <Tabs defaultValue="departments">
-          <TabsList className="h-auto w-full max-w-full flex-wrap justify-start overflow-x-auto">
+          <TabsList className="h-auto w-full max-w-full flex-wrap justify-start overflow-x-auto bg-card p-1 ring-1 ring-border">
             <TabsTrigger value="departments">Departments</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="recipients">Recipients</TabsTrigger>
@@ -83,7 +84,7 @@ export default async function MasterDataPage() {
             </TabsContent>
           )}
         </Tabs>
-      </div>
+      </PageBody>
     </div>
   );
 }

@@ -1,12 +1,15 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { syncBreaches } from "@/lib/breach";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageBody, EmptyState, SectionTitle } from "@/components/layout/page-body";
+import { StatCard } from "@/components/layout/stat-card";
+import { ClickableTableRow } from "@/components/layout/clickable-table-row";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { deadlineStatus, formatDays, formatNumber, statusClasses } from "@/lib/format";
 import { FINISHED_GOODS_STAGE } from "@/lib/stages";
+import { ClipboardList, AlertTriangle, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +28,7 @@ export default async function DashboardPage() {
     })(),
   ]);
 
-  const activeOcs = ocs.filter((oc) => oc.status !== "closed");
+  const activeOcs = ocs.filter((oc) => oc.status !== "closed" && oc.status !== "cancelled");
   const rows = ocs.map((oc) => {
     const openEvent = oc.events.find((e) => !e.exitedAt);
     let daysInStage = 0;
@@ -58,96 +61,101 @@ export default async function DashboardPage() {
           ),
         }}
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6 space-y-6">
+      <PageBody className="space-y-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active OCs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold tabular-nums">{activeOcs.length}</div>
-            </CardContent>
-          </Card>
-          <Card
+          <StatCard
+            label="Active OCs"
+            value={activeOcs.length}
+            hint="Currently in production"
+            icon={<ClipboardList className="size-4" />}
+            className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
+          />
+          <StatCard
+            label="At risk"
+            value={atRisk.length}
+            tone={atRisk.length > 0 ? "danger" : "default"}
+            hint="Approaching or breached"
+            icon={<AlertTriangle className="size-4" />}
             className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
             style={{ animationDelay: "80ms" }}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">OCs at risk</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold tabular-nums text-[var(--status-breach)]">
-                {atRisk.length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card
+          />
+          <StatCard
+            label="Quotations"
+            value={quotationsThisMonth}
+            hint="Created this month"
+            icon={<FileText className="size-4" />}
             className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
             style={{ animationDelay: "160ms" }}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Quotations this month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold tabular-nums">{quotationsThisMonth}</div>
+          />
+        </div>
+
+        <div>
+          <SectionTitle>Orders in production</SectionTitle>
+          <Card className="py-0 animate-in fade-in duration-500 fill-mode-both" style={{ animationDelay: "220ms" }}>
+            <CardContent className="p-0">
+              {rows.length === 0 ? (
+                <EmptyState
+                  title="No orders yet"
+                  description="Released order confirmations will appear here with live stage and deadline status."
+                  icon={<ClipboardList className="size-5" />}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>OC number</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead>Current stage</TableHead>
+                      <TableHead className="text-right">Days in stage</TableHead>
+                      <TableHead>Deadline status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map(({ oc, daysInStage, status }) => (
+                      <ClickableTableRow
+                        key={oc.id}
+                        href={`/orders/${oc.id}`}
+                        label={`Open order ${oc.ocNumber}`}
+                      >
+                        <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
+                          {oc.ocNumber}
+                        </TableCell>
+                        <TableCell className="relative z-0 text-muted-foreground">
+                          <span className="text-foreground">{oc.product.name}</span>
+                          <span className="mx-1.5 text-border">·</span>
+                          {oc.colour.name}
+                        </TableCell>
+                        <TableCell className="relative z-0 text-right tabular-nums font-medium">
+                          {formatNumber(oc.quantity)}
+                        </TableCell>
+                        <TableCell className="relative z-0">{oc.currentStage}</TableCell>
+                        <TableCell className="relative z-0 text-right tabular-nums text-muted-foreground">
+                          {oc.currentStage === FINISHED_GOODS_STAGE ? "—" : formatDays(daysInStage)}
+                        </TableCell>
+                        <TableCell className="relative z-0">
+                          {status ? (
+                            <Badge
+                              variant="outline"
+                              className={`${statusClasses[status].text} ${statusClasses[status].bg} border-transparent ${status === "breach" ? "animate-pulse" : ""}`}
+                            >
+                              {statusClasses[status].label}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-transparent bg-secondary text-muted-foreground">
+                              Complete
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </ClickableTableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        <Card className="py-0 animate-in fade-in duration-500 fill-mode-both" style={{ animationDelay: "220ms" }}>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>OC number</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead>Current stage</TableHead>
-                  <TableHead className="text-right">Days in stage</TableHead>
-                  <TableHead>Deadline status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map(({ oc, daysInStage, status }, i) => (
-                  <TableRow
-                    key={oc.id}
-                    className="h-14 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both"
-                    style={{ animationDelay: `${260 + i * 40}ms` }}
-                  >
-                    <TableCell className="font-medium">
-                      <Link href={`/orders/${oc.id}`} className="transition-colors hover:text-primary hover:underline">
-                        {oc.ocNumber}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {oc.product.name} · {oc.colour.name}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(oc.quantity)}</TableCell>
-                    <TableCell>{oc.currentStage}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {oc.currentStage === FINISHED_GOODS_STAGE ? "—" : formatDays(daysInStage)}
-                    </TableCell>
-                    <TableCell>
-                      {status ? (
-                        <Badge
-                          variant="outline"
-                          className={`${statusClasses[status].text} ${statusClasses[status].bg} border-transparent transition-colors ${status === "breach" ? "animate-pulse" : ""}`}
-                        >
-                          {statusClasses[status].label}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-transparent bg-secondary text-muted-foreground">
-                          Complete
-                        </Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+      </PageBody>
     </div>
   );
 }

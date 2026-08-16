@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageBody } from "@/components/layout/page-body";
+import { ClickableTableRow } from "@/components/layout/clickable-table-row";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,7 @@ export default async function ManpowerListPage({
           ),
         }}
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6">
+      <PageBody>
         <ListToolbar
           searchPlaceholder="Search orders…"
           filterOptions={STATUS_OPTIONS}
@@ -87,27 +88,27 @@ export default async function ManpowerListPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((oc, i) => (
-                  <TableRow
+                {filtered.map((oc) => (
+                  <ClickableTableRow
                     key={oc.id}
-                    className="h-14 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both"
-                    style={{ animationDelay: `${i * 40}ms` }}
+                    href={`/manpower/${oc.id}`}
+                    label={`Open manpower plan for ${oc.ocNumber}`}
                   >
-                    <TableCell className="font-medium">
-                      <Link href={`/manpower/${oc.id}`} className="transition-colors hover:text-primary hover:underline">
-                        {oc.ocNumber}
-                      </Link>
+                    <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
+                      {oc.ocNumber}
                     </TableCell>
-                    <TableCell>
-                      {oc.product.name} · {oc.colour.name}
+                    <TableCell className="relative z-0 text-muted-foreground">
+                      <span className="text-foreground">{oc.product.name}</span>
+                      <span className="mx-1.5 text-border">·</span>
+                      {oc.colour.name}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(oc.quantity)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="relative z-0 text-right tabular-nums font-medium">{formatNumber(oc.quantity)}</TableCell>
+                    <TableCell className="relative z-0 text-muted-foreground">
                       {oc.manpowerPlan
                         ? `${formatDate(oc.manpowerPlan.startDate)} – ${formatDate(oc.manpowerPlan.endDate)}`
                         : "—"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="relative z-0">
                       {oc.manpowerPlan ? (
                         <Badge
                           variant="outline"
@@ -125,14 +126,14 @@ export default async function ManpowerListPage({
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="relative z-0">
                       {oc.manpowerPlan?.status === "achievable" && oc.manpowerPlan.lines.length > 0 ? (
                         <UtilisationBar value={Math.max(...oc.manpowerPlan.lines.map((l) => l.utilisation))} />
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                  </TableRow>
+                  </ClickableTableRow>
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
@@ -145,7 +146,7 @@ export default async function ManpowerListPage({
             </Table>
           </CardContent>
         </Card>
-      </div>
+      </PageBody>
     </div>
   );
 }

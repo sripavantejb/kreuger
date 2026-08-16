@@ -2,10 +2,11 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { syncBreaches } from "@/lib/breach";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageBody, EmptyState } from "@/components/layout/page-body";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
-import { AlertTriangle, Mail } from "lucide-react";
+import { AlertTriangle, Mail, BellRing } from "lucide-react";
 import { ListToolbar } from "@/components/layout/list-toolbar";
 import { ExportCsvButton } from "@/components/layout/export-csv-button";
 import type { Prisma } from "@/generated/prisma";
@@ -71,21 +72,29 @@ export default async function AlertsPage({
           ),
         }}
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6 max-w-3xl">
+      <PageBody narrow>
         <ListToolbar searchPlaceholder="Search alerts…" filterOptions={TYPE_OPTIONS} filterLabel="All types">
           <ExportCsvButton filename="alerts.csv" rows={csvRows} />
         </ListToolbar>
         <div className="space-y-3">
-          {alerts.map((a, i) => (
+          {alerts.length === 0 ? (
+            <Card className="py-0">
+              <EmptyState
+                title="No alerts match"
+                description="Stage-entry and deadline notifications will show up here as they’re generated."
+                icon={<BellRing className="size-5" />}
+              />
+            </Card>
+          ) : (
+            alerts.map((a) => (
             <Card
               key={a.id}
-              className="p-0 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both hover:shadow-md"
-              style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
+              className="py-0 transition-shadow hover:shadow-airbnb"
             >
               <div className="flex items-start gap-3 px-4 py-4 sm:gap-4 sm:px-5">
                 <div
                   className={
-                    "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full " +
+                    "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full " +
                     (a.type === "deadline_breach"
                       ? "bg-[var(--status-breach-bg)] text-[var(--status-breach)]"
                       : "bg-secondary text-muted-foreground")
@@ -120,11 +129,11 @@ export default async function AlertsPage({
                       </span>
                     </div>
                   </div>
-                  <p className="mt-1.5 text-sm text-foreground/80">{a.body}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/80">{a.body}</p>
                   {a.oc && (
                     <Link
                       href={`/orders/${a.oc.id}`}
-                      className="mt-1.5 inline-block text-xs text-primary hover:underline"
+                      className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
                     >
                       {a.oc.ocNumber}
                     </Link>
@@ -132,12 +141,10 @@ export default async function AlertsPage({
                 </div>
               </div>
             </Card>
-          ))}
-          {alerts.length === 0 && (
-            <div className="py-8 text-center text-sm text-muted-foreground">No alerts match.</div>
+            ))
           )}
         </div>
-      </div>
+      </PageBody>
     </div>
   );
 }

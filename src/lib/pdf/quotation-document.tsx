@@ -1,17 +1,33 @@
+import path from "node:path";
 import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line, Image } from "@react-pdf/renderer";
 import { BRAND_LOGO_URL } from "@/lib/brand";
 
+// react-pdf's Image renders server-side with no browser/DOM: it can only take a
+// data: URI, an absolute http(s) URL, or a filesystem path — and only raster
+// formats (no SVG). Resolve or reject whatever ProductColourImage.imagePath holds
+// so a legacy site-relative .svg placeholder falls back to the schematic glyph
+// instead of failing the whole PDF render.
+function resolvePdfImageSrc(imagePath: string): string | null {
+  if (!imagePath) return null;
+  const lower = imagePath.toLowerCase();
+  if (lower.endsWith(".svg")) return null;
+  if (imagePath.startsWith("data:image/")) return imagePath;
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) return imagePath;
+  if (imagePath.startsWith("/")) return path.join(process.cwd(), "public", imagePath);
+  return null;
+}
+
 // Column widths for the BOQ-style table — sums to 100%.
 const COL = {
-  sr: 5,
-  particular: 13,
-  image: 14,
-  description: 26,
-  location: 12,
+  sr: 4,
+  particular: 12,
+  image: 13,
+  description: 23,
+  location: 10,
   unit: 6,
   qty: 8,
-  rate: 8,
-  amount: 8,
+  rate: 12,
+  amount: 12,
 };
 
 const styles = StyleSheet.create({
@@ -116,12 +132,14 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
     .filter(Boolean);
   const gstAmount = (data.lineTotal * data.gstPercent) / 100;
   const grandTotal = data.lineTotal + gstAmount;
+  const pdfImageSrc = resolvePdfImageSrc(data.imagePath);
 
   return (
     <Document title={data.quotationNumber}>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop */}
             <Image src={BRAND_LOGO_URL} style={styles.logo} />
             <Text style={styles.companyName}>Kreuger Furniture Works</Text>
           </View>
@@ -153,8 +171,9 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
             <Text style={[styles.cell, { width: `${COL.particular}%`, fontWeight: 700 }]}>{data.productName}</Text>
             <View style={[styles.cell, { width: `${COL.image}%`, alignItems: "center" }]}>
               <View style={styles.imageBox}>
-                {data.imagePath ? (
-                  <Image src={data.imagePath} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {pdfImageSrc ? (
+                  // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image has no alt prop
+                  <Image src={pdfImageSrc} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : data.productCode === "MASTRO" ? (
                   <ChairGlyph hex={data.colourHex} outline={data.colourOutlineHex} />
                 ) : (

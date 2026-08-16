@@ -2,11 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession, roleAtLeast } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageBody, EmptyState } from "@/components/layout/page-body";
+import { ClickableTableRow } from "@/components/layout/clickable-table-row";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatINR, formatNumber } from "@/lib/format";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { ListToolbar } from "@/components/layout/list-toolbar";
 import { ExportCsvButton } from "@/components/layout/export-csv-button";
 import type { Prisma } from "@/generated/prisma";
@@ -89,12 +91,19 @@ export default async function QuotationsPage({
           )
         }
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6">
+      <PageBody>
         <ListToolbar searchPlaceholder="Search quotations…" sortOptions={SORT_OPTIONS}>
           <ExportCsvButton filename="quotations.csv" rows={csvRows} />
         </ListToolbar>
         <Card className="py-0">
           <CardContent className="p-0">
+            {quotations.length === 0 ? (
+              <EmptyState
+                title="No quotations match"
+                description="Create a quotation to price a product and quantity for a customer."
+                icon={<FileText className="size-5" />}
+              />
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -108,42 +117,34 @@ export default async function QuotationsPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {quotations.map((q, i) => (
-                  <TableRow
+                {quotations.map((q) => (
+                  <ClickableTableRow
                     key={q.id}
-                    className="h-14 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both"
-                    style={{ animationDelay: `${i * 40}ms` }}
+                    href={`/quotations/${q.id}`}
+                    label={`Open quotation ${q.quotationNumber}`}
                   >
-                    <TableCell className="font-medium">
-                      <Link href={`/quotations/${q.id}`} className="transition-colors hover:text-primary hover:underline">
-                        {q.quotationNumber}
-                      </Link>
+                    <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
+                      {q.quotationNumber}
                       {q.revisesQuotationNumber && (
                         <div className="text-xs font-normal text-muted-foreground">
                           revises {q.revisesQuotationNumber}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{formatDate(q.createdAt)}</TableCell>
-                    <TableCell>{q.product.name}</TableCell>
-                    <TableCell>{q.colour.name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(q.quantity)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(q.unitRate)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{formatINR(q.lineTotal)}</TableCell>
-                  </TableRow>
+                    <TableCell className="relative z-0 text-muted-foreground">{formatDate(q.createdAt)}</TableCell>
+                    <TableCell className="relative z-0">{q.product.name}</TableCell>
+                    <TableCell className="relative z-0 text-muted-foreground">{q.colour.name}</TableCell>
+                    <TableCell className="relative z-0 text-right tabular-nums font-medium">{formatNumber(q.quantity)}</TableCell>
+                    <TableCell className="relative z-0 text-right tabular-nums text-muted-foreground">{formatINR(q.unitRate)}</TableCell>
+                    <TableCell className="relative z-0 text-right tabular-nums font-semibold">{formatINR(q.lineTotal)}</TableCell>
+                  </ClickableTableRow>
                 ))}
-                {quotations.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                      No quotations match.
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
-      </div>
+      </PageBody>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
           />
         }
       />
-      <div className="px-4 sm:px-6 md:px-8 py-6 max-w-2xl">
+      <div className="px-4 py-6 sm:px-6 md:px-8 max-w-2xl">
         {quotation.revisesQuotationNumber && (
           <div className="mb-4 rounded-md border border-border bg-secondary/40 px-4 py-2 text-sm text-muted-foreground">
             This is a revision of {quotation.revisesQuotationNumber}.
