@@ -43,9 +43,24 @@ Seeded users (password `ChangeMe123!`): `admin@kreuger.local`, `manager@kreuger.
 - **OC** — production tracking id (`OrderConfirmation`)  
 - Demo material **available qty** is master-data only — **not** live SAP inventory  
 
-## Email
+## Email (Gmail)
 
-Alerts are always written to the database. Real SMTP only when `ENABLE_EMAIL=true` and SMTP env vars are set.
+Alerts are always stored in `/alerts`. To also send to Gmail:
+
+1. Create a [Google App Password](https://myaccount.google.com/apppasswords)
+2. Copy `.env.example` → `.env` and set:
+
+```bash
+ENABLE_EMAIL=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your.name@gmail.com
+SMTP_PASS=your-16-char-app-password
+SMTP_FROM="Kreuger Ops <your.name@gmail.com>"
+ALERT_GMAIL=your.name@gmail.com   # optional test override
+```
+
+3. `npm run seed` (so recipient emails pick up `ALERT_GMAIL`) then trigger an alert (confirm SO / advance stage).
 
 ## Out of scope
 

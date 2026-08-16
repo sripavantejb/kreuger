@@ -18,13 +18,17 @@ async function nextQuotationNumber(): Promise<string> {
   return `Q-${year}-${String(count + 1).padStart(4, "0")}`;
 }
 
-export type CreateQuotationInput = {
+export type CreateQuotationLineInput = {
   productId: string;
-  quantity: number;
   colourId: string;
-  /** Manager-approved unit rate. Defaults to slab suggestion when omitted. */
+  quantity: number;
   unitRate?: number;
   location?: string;
+};
+
+export type CreateQuotationInput = {
+  /** One or more product lines. First line is mirrored onto Quotation header fields for list views. */
+  lines: CreateQuotationLineInput[];
   revisesQuotationNumber?: string;
   vendorName?: string;
   vendorAddress?: string;
@@ -49,27 +53,47 @@ export type CreateQuotationInput = {
 
 export async function createQuotation(input: CreateQuotationInput) {
   await requireRole("MANAGER");
-  const product = await prisma.product.findUniqueOrThrow({
-    where: { id: input.productId },
-    include: { pricingSlabs: true },
-  });
-  const suggested = computeUnitRate(product.baseRate, input.quantity, product.pricingSlabs);
-  const unitRate =
-    typeof input.unitRate === "number" && Number.isFinite(input.unitRate) && input.unitRate > 0
-      ? input.unitRate
-      : suggested;
-  const lineTotal = unitRate * input.quantity;
+  if (!input.lines?.length) throw new Error("Add at least one product line.");
+
+  const prepared = [];
+  for (let i = 0; i < input.lines.length; i++) {
+    const line = input.lines[i];
+    if (!line.productId || !line.colourId || line.quantity < 1) {
+      throw new Error(`Line ${i + 1} is incomplete.`);
+    }
+    const product = await prisma.product.findUniqueOrThrow({
+      where: { id: line.productId },
+      include: { pricingSlabs: true },
+    });
+    const suggested = computeUnitRate(product.baseRate, line.quantity, product.pricingSlabs);
+    const unitRate =
+      typeof line.unitRate === "number" && Number.isFinite(line.unitRate) && line.unitRate > 0
+        ? line.unitRate
+        : suggested;
+    prepared.push({
+      sortOrder: i,
+      productId: line.productId,
+      colourId: line.colourId,
+      quantity: line.quantity,
+      unitRate,
+      lineTotal: unitRate * line.quantity,
+      location: line.location?.trim() ?? "",
+    });
+  }
+
+  const first = prepared[0];
+  const headerTotal = prepared.reduce((sum, l) => sum + l.lineTotal, 0);
   const quotationNumber = await nextQuotationNumber();
 
   const quotation = await prisma.quotation.create({
     data: {
       quotationNumber,
-      productId: input.productId,
-      quantity: input.quantity,
-      colourId: input.colourId,
-      unitRate,
-      lineTotal,
-      location: input.location?.trim() ?? "",
+      productId: first.productId,
+      quantity: first.quantity,
+      colourId: first.colourId,
+      unitRate: first.unitRate,
+      lineTotal: headerTotal,
+      location: first.location,
       revisesQuotationNumber: input.revisesQuotationNumber,
       vendorName: input.vendorName?.trim() ?? "",
       vendorAddress: input.vendorAddress?.trim() ?? "",
@@ -90,6 +114,7 @@ export async function createQuotation(input: CreateQuotationInput) {
       remarks: input.remarks?.trim() ?? "",
       paymentTerms: input.paymentTerms?.trim() || "Advance 100%",
       discountPercent: input.discountPercent ?? 0,
+      lines: { create: prepared },
     },
   });
   revalidatePath("/quotations");

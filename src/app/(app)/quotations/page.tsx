@@ -51,16 +51,17 @@ export default async function QuotationsPage({
 
   const quotations = await prisma.quotation.findMany({
     where,
-    include: { product: true, colour: true },
+    include: { product: true, colour: true, lines: true },
     orderBy,
   });
 
   const csvRows = quotations.map((row) => ({
     "Quotation #": row.quotationNumber,
     Date: formatDate(row.createdAt),
-    Product: row.product.name,
+    Lines: row.lines.length || 1,
+    Product: row.lines.length > 1 ? `${row.product.name} +${row.lines.length - 1}` : row.product.name,
     Colour: row.colour.name,
-    Quantity: row.quantity,
+    Quantity: row.lines.length > 0 ? row.lines.reduce((s, l) => s + l.quantity, 0) : row.quantity,
     "Unit rate": row.unitRate,
     "Line total": row.lineTotal,
     Customer: row.vendorName,
@@ -115,10 +116,9 @@ export default async function QuotationsPage({
                   <TableRow>
                     <TableHead>Quotation</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Product</TableHead>
+                    <TableHead>Products</TableHead>
                     <TableHead>Colour</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit rate</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -127,10 +127,19 @@ export default async function QuotationsPage({
                     <ClickableTableRow key={row.id} href={`/quotations/${row.id}`} label={`Open ${row.quotationNumber}`}>
                       <TableCell className="font-medium">{row.quotationNumber}</TableCell>
                       <TableCell>{formatDate(row.createdAt)}</TableCell>
-                      <TableCell>{row.product.name}</TableCell>
-                      <TableCell>{row.colour.name}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatNumber(row.quantity)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(row.unitRate)}</TableCell>
+                      <TableCell>
+                        {row.lines.length > 1
+                          ? `${row.product.name} +${row.lines.length - 1} more`
+                          : row.product.name}
+                      </TableCell>
+                      <TableCell>
+                        {row.lines.length > 1 ? `${row.lines.length} colours` : row.colour.name}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatNumber(
+                          row.lines.length > 0 ? row.lines.reduce((s, l) => s + l.quantity, 0) : row.quantity
+                        )}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{formatINR(row.lineTotal)}</TableCell>
                     </ClickableTableRow>
                   ))}

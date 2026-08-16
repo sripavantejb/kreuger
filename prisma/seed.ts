@@ -21,6 +21,7 @@ async function reset() {
   await prisma.ocDepartmentPlan.deleteMany();
   await prisma.orderConfirmation.deleteMany();
   await prisma.salesOrder.deleteMany();
+  await prisma.quotationLine.deleteMany();
   await prisma.quotation.deleteMany();
   await prisma.pricingSlab.deleteMany();
   await prisma.productMaterial.deleteMany();
@@ -36,6 +37,7 @@ async function reset() {
 async function main() {
   await reset();
 
+  const alertGmail = process.env.ALERT_GMAIL?.trim();
   const settings = await prisma.settings.create({
     data: {
       id: 1,
@@ -44,13 +46,13 @@ async function main() {
       shiftHours: 8,
       gstPercent: 18,
       plantHeadName: "Plant Head",
-      plantHeadEmail: "plant.head@kreuger.local",
+      plantHeadEmail: alertGmail || "plant.head@kreuger.local",
       procurementHeadName: "Procurement Head",
-      procurementHeadEmail: "procurement.head@kreuger.local",
+      procurementHeadEmail: alertGmail || "procurement.head@kreuger.local",
       dispatchHeadName: "Dispatch Head",
-      dispatchHeadEmail: "dispatch.head@kreuger.local",
+      dispatchHeadEmail: alertGmail || "dispatch.head@kreuger.local",
       salesCoordinatorName: "Sales Coordinator",
-      salesCoordinatorEmail: "sales.coordinator@kreuger.local",
+      salesCoordinatorEmail: alertGmail || "sales.coordinator@kreuger.local",
     },
   });
 
@@ -90,7 +92,7 @@ async function main() {
         unitsPerWorkerPerDay: 2.0,
         maxUnitsPerDay: 30,
         headName: "Injection Moulding Head",
-        headEmail: "injection.head@kreuger.local",
+        headEmail: process.env.ALERT_GMAIL?.trim() || "injection@kreuger.local",
       },
     }),
     prisma.department.create({
@@ -101,7 +103,7 @@ async function main() {
         unitsPerWorkerPerDay: 0.75,
         maxUnitsPerDay: 15,
         headName: "Fabrication Head",
-        headEmail: "fabrication.head@kreuger.local",
+        headEmail: process.env.ALERT_GMAIL?.trim() || "fabrication.head@kreuger.local",
       },
     }),
     prisma.department.create({
@@ -112,7 +114,7 @@ async function main() {
         unitsPerWorkerPerDay: 0.5,
         maxUnitsPerDay: 15,
         headName: "Powder Coating Head",
-        headEmail: "powdercoating.head@kreuger.local",
+        headEmail: process.env.ALERT_GMAIL?.trim() || "powdercoating.head@kreuger.local",
       },
     }),
   ]);
@@ -255,10 +257,25 @@ async function main() {
       ...partyDefaults,
       remarks: "Mastro chairs — Black — Workstations floor",
       deliveryDate: daysAgo(-14),
+      lines: {
+        create: [
+          {
+            sortOrder: 0,
+            productId: mastro.id,
+            colourId: colourByName["Black"].id,
+            quantity: q1Qty,
+            unitRate: q1Rate,
+            lineTotal: q1Rate * q1Qty,
+            location: "Workstations",
+          },
+        ],
+      },
     },
   });
   const q2Qty = 300;
   const q2Rate = computeUnitRate(mastro.baseRate, q2Qty, slabsData);
+  const q2NovaQty = 20;
+  const q2NovaRate = computeUnitRate(nova.baseRate, q2NovaQty, slabsData);
   await prisma.quotation.create({
     data: {
       quotationNumber: "Q-2026-0002",
@@ -266,11 +283,33 @@ async function main() {
       quantity: q2Qty,
       colourId: colourByName["White"].id,
       unitRate: q2Rate,
-      lineTotal: q2Rate * q2Qty,
+      lineTotal: q2Rate * q2Qty + q2NovaRate * q2NovaQty,
       createdAt: daysAgo(2),
       ...partyDefaults,
-      remarks: "Bulk Mastro order — White",
+      remarks: "Multi-product quote — Mastro + Nova",
       deliveryDate: daysAgo(-21),
+      lines: {
+        create: [
+          {
+            sortOrder: 0,
+            productId: mastro.id,
+            colourId: colourByName["White"].id,
+            quantity: q2Qty,
+            unitRate: q2Rate,
+            lineTotal: q2Rate * q2Qty,
+            location: "Open office",
+          },
+          {
+            sortOrder: 1,
+            productId: nova.id,
+            colourId: colourByName["Blue"].id,
+            quantity: q2NovaQty,
+            unitRate: q2NovaRate,
+            lineTotal: q2NovaRate * q2NovaQty,
+            location: "Cabins",
+          },
+        ],
+      },
     },
   });
   const q3Qty = 40;
@@ -288,6 +327,18 @@ async function main() {
       vendorRefNo: "ENQ/2026/088",
       remarks: "Nova executive chairs — Blue",
       deliveryDate: daysAgo(-10),
+      lines: {
+        create: [
+          {
+            sortOrder: 0,
+            productId: nova.id,
+            colourId: colourByName["Blue"].id,
+            quantity: q3Qty,
+            unitRate: q3Rate,
+            lineTotal: q3Rate * q3Qty,
+          },
+        ],
+      },
     },
   });
 

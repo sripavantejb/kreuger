@@ -107,6 +107,19 @@ function MetaLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+export type QuotationPdfLine = {
+  productName: string;
+  productCode: string;
+  description: string;
+  hsnCode: string;
+  imagePath: string;
+  colourName: string;
+  location: string;
+  quantity: number;
+  unitRate: number;
+  lineTotal: number;
+};
+
 export type QuotationPdfData = {
   quotationNumber: string;
   date: Date;
@@ -122,6 +135,7 @@ export type QuotationPdfData = {
   lineTotal: number;
   gstPercent: number;
   discountPercent: number;
+  lines?: QuotationPdfLine[];
   vendorName: string;
   vendorAddress: string;
   vendorState: string;
@@ -143,12 +157,26 @@ export type QuotationPdfData = {
 };
 
 export function QuotationDocument({ data }: { data: QuotationPdfData }) {
-  const specs = data.description
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const lines: QuotationPdfLine[] =
+    data.lines && data.lines.length > 0
+      ? data.lines
+      : [
+          {
+            productName: data.productName,
+            productCode: data.productCode,
+            description: data.description,
+            hsnCode: data.hsnCode,
+            imagePath: data.imagePath,
+            colourName: data.colourName,
+            location: data.location,
+            quantity: data.quantity,
+            unitRate: data.unitRate,
+            lineTotal: data.lineTotal,
+          },
+        ];
+
   const discountPct = data.discountPercent || 0;
-  const taxable = data.lineTotal * (1 - discountPct / 100);
+  const taxable = lines.reduce((s, l) => s + l.lineTotal, 0) * (1 - discountPct / 100);
   const cgstRate = data.gstPercent / 2;
   const sgstRate = data.gstPercent / 2;
   const cgstAmt = (taxable * cgstRate) / 100;
@@ -157,14 +185,7 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
   const grandTotalRaw = taxable + totalGst;
   const grandTotal = Math.round(grandTotalRaw);
   const rounding = grandTotal - grandTotalRaw;
-  const pdfImageSrc = resolvePdfImageSrc(data.imagePath);
-
-  const descLines = [
-    data.productName,
-    data.location ? `Location: ${data.location}` : null,
-    `Colour: ${data.colourName}`,
-    ...specs.slice(0, 4),
-  ].filter(Boolean) as string[];
+  const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
 
   // Column widths % — must sum to 100
   const W = {
@@ -274,38 +295,56 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
             <Text style={[styles.headCell, { width: `${W.total}%`, borderRightWidth: 0 }]}>Total</Text>
           </View>
 
-          <View style={styles.dataRow}>
-            <Text style={[styles.cell, { width: `${W.sr}%`, textAlign: "center" }]}>1</Text>
-            <View style={[styles.cell, { width: `${W.desc}%` }]}>
-              {descLines.map((line, i) => (
-                <Text key={i} style={{ marginBottom: 1, fontWeight: i === 0 ? 700 : 400 }}>
-                  {line}
+          {lines.map((line, idx) => {
+            const specs = line.description
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean);
+            const descLines = [
+              line.productName,
+              line.location ? `Location: ${line.location}` : null,
+              `Colour: ${line.colourName}`,
+              ...specs.slice(0, 4),
+            ].filter(Boolean) as string[];
+            const pdfImageSrc = resolvePdfImageSrc(line.imagePath);
+            const lineTaxable = line.lineTotal * (1 - discountPct / 100);
+            const lineCgst = (lineTaxable * cgstRate) / 100;
+            const lineSgst = (lineTaxable * sgstRate) / 100;
+            return (
+              <View key={`${line.productCode}-${idx}`} style={styles.dataRow} wrap={false}>
+                <Text style={[styles.cell, { width: `${W.sr}%`, textAlign: "center" }]}>{idx + 1}</Text>
+                <View style={[styles.cell, { width: `${W.desc}%` }]}>
+                  {descLines.map((text, i) => (
+                    <Text key={i} style={{ marginBottom: 1, fontWeight: i === 0 ? 700 : 400 }}>
+                      {text}
+                    </Text>
+                  ))}
+                  {pdfImageSrc ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image
+                    <Image src={pdfImageSrc} style={{ width: 40, height: 40, marginTop: 4 }} />
+                  ) : null}
+                </View>
+                <Text style={[styles.cell, { width: `${W.hsn}%`, textAlign: "center" }]}>{line.hsnCode || "—"}</Text>
+                <Text style={[styles.cell, { width: `${W.qty}%`, textAlign: "right" }]}>{formatNumber(line.quantity)}</Text>
+                <Text style={[styles.cell, { width: `${W.uom}%`, textAlign: "center" }]}>Nos</Text>
+                <Text style={[styles.cell, { width: `${W.rate}%`, textAlign: "right" }]}>{formatINR(line.unitRate)}</Text>
+                <Text style={[styles.cell, { width: `${W.disc}%`, textAlign: "right" }]}>{formatINR(discountPct)}</Text>
+                <Text style={[styles.cell, { width: `${W.taxable}%`, textAlign: "right" }]}>{formatINR(lineTaxable)}</Text>
+                <Text style={[styles.cell, { width: `${W.cgstR}%`, textAlign: "right" }]}>{formatINR(cgstRate)}</Text>
+                <Text style={[styles.cell, { width: `${W.cgstA}%`, textAlign: "right" }]}>{formatINR(lineCgst)}</Text>
+                <Text style={[styles.cell, { width: `${W.sgstR}%`, textAlign: "right" }]}>{formatINR(sgstRate)}</Text>
+                <Text style={[styles.cell, { width: `${W.sgstA}%`, textAlign: "right" }]}>{formatINR(lineSgst)}</Text>
+                <Text style={[styles.cell, { width: `${W.total}%`, textAlign: "right", borderRightWidth: 0, fontWeight: 700 }]}>
+                  {formatINR(lineTaxable + lineCgst + lineSgst)}
                 </Text>
-              ))}
-              {pdfImageSrc ? (
-                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image
-                <Image src={pdfImageSrc} style={{ width: 40, height: 40, marginTop: 4 }} />
-              ) : null}
-            </View>
-            <Text style={[styles.cell, { width: `${W.hsn}%`, textAlign: "center" }]}>{data.hsnCode || "—"}</Text>
-            <Text style={[styles.cell, { width: `${W.qty}%`, textAlign: "right" }]}>{formatNumber(data.quantity)}</Text>
-            <Text style={[styles.cell, { width: `${W.uom}%`, textAlign: "center" }]}>Nos</Text>
-            <Text style={[styles.cell, { width: `${W.rate}%`, textAlign: "right" }]}>{formatINR(data.unitRate)}</Text>
-            <Text style={[styles.cell, { width: `${W.disc}%`, textAlign: "right" }]}>{formatINR(discountPct)}</Text>
-            <Text style={[styles.cell, { width: `${W.taxable}%`, textAlign: "right" }]}>{formatINR(taxable)}</Text>
-            <Text style={[styles.cell, { width: `${W.cgstR}%`, textAlign: "right" }]}>{formatINR(cgstRate)}</Text>
-            <Text style={[styles.cell, { width: `${W.cgstA}%`, textAlign: "right" }]}>{formatINR(cgstAmt)}</Text>
-            <Text style={[styles.cell, { width: `${W.sgstR}%`, textAlign: "right" }]}>{formatINR(sgstRate)}</Text>
-            <Text style={[styles.cell, { width: `${W.sgstA}%`, textAlign: "right" }]}>{formatINR(sgstAmt)}</Text>
-            <Text style={[styles.cell, { width: `${W.total}%`, textAlign: "right", borderRightWidth: 0, fontWeight: 700 }]}>
-              {formatINR(taxable + totalGst)}
-            </Text>
-          </View>
+              </View>
+            );
+          })}
 
           <View style={styles.totalRow}>
             <Text style={[styles.cell, { width: `${W.sr + W.desc + W.hsn}%`, fontWeight: 700 }]}>Total</Text>
             <Text style={[styles.cell, { width: `${W.qty}%`, textAlign: "right", fontWeight: 700 }]}>
-              {formatNumber(data.quantity)}
+              {formatNumber(totalQty)}
             </Text>
             <Text style={[styles.cell, { width: `${W.uom + W.rate + W.disc}%` }]} />
             <Text style={[styles.cell, { width: `${W.taxable}%`, textAlign: "right", fontWeight: 700 }]}>

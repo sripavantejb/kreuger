@@ -11,6 +11,8 @@ import { ListToolbar } from "@/components/layout/list-toolbar";
 import { ExportCsvButton } from "@/components/layout/export-csv-button";
 import type { Prisma } from "@/generated/prisma";
 
+import { getEmailDeliveryStatus } from "@/lib/email";
+
 export const dynamic = "force-dynamic";
 
 const TYPE_OPTIONS = [
@@ -27,7 +29,7 @@ export default async function AlertsPage({
   searchParams: Promise<{ q?: string; filter?: string }>;
 }) {
   await syncBreaches();
-  const { q, filter } = await searchParams;
+  const [{ q, filter }, emailStatus] = await Promise.all([searchParams, getEmailDeliveryStatus()]);
 
   const where: Prisma.AlertWhereInput = {
     ...(filter && filter !== "all" ? { type: filter } : {}),
@@ -61,16 +63,23 @@ export default async function AlertsPage({
     <div>
       <PageHeader
         title="Alerts"
-        description="Every stage entry and deadline breach, exactly as it would land in an inbox. No email is actually sent — see BUILD_SPEC.md § Email."
+        description={
+          emailStatus.configured
+            ? `Inbox log + Gmail delivery on (${emailStatus.host}${emailStatus.overrideTo ? ` → ${emailStatus.overrideTo}` : ""}).`
+            : emailStatus.enabled
+              ? "ENABLE_EMAIL is on but SMTP/Gmail credentials are incomplete — alerts stay in this log only."
+              : "Alerts are always logged here. Set ENABLE_EMAIL=true and Gmail SMTP in .env to also deliver to Gmail."
+        }
         help={{
           content: (
             <>
-              <p>This is a log of every notification the system generated, shown exactly as an email would read.</p>
+              <p>Every notification is written to this log. Optional Gmail SMTP uses App Passwords — see .env.example.</p>
               <ul>
-                <li><strong>Stage entry alerts</strong> — sent to a department head when an order enters their stage.</li>
-                <li><strong>Deadline breach alerts</strong> — sent when an order is still in production past its target date.</li>
+                <li><strong>Stage entry</strong> — department head</li>
+                <li><strong>Deadline breach / escalation</strong> — plant head</li>
+                <li><strong>Sales order confirmed</strong> — sales coordinator</li>
               </ul>
-              <p>Recipients are configured in Master Data → Recipients. Real email delivery is optional and off by default.</p>
+              <p>Set ALERT_GMAIL to route all alerts to one inbox while testing.</p>
             </>
           ),
         }}

@@ -3,6 +3,20 @@ import { BrandLogo } from "@/components/layout/brand-logo";
 import { COMPANY } from "@/lib/brand";
 import { amountInWordsINR } from "@/lib/amount-in-words";
 
+export type QuotationPreviewLine = {
+  productName: string;
+  productCode: string;
+  description: string;
+  hsnCode?: string;
+  imagePath: string;
+  colourName: string;
+  colourHex?: string;
+  location?: string;
+  quantity: number;
+  unitRate: number;
+  lineTotal: number;
+};
+
 export type QuotationPreviewData = {
   quotationNumber: string;
   date: Date | string;
@@ -19,6 +33,7 @@ export type QuotationPreviewData = {
   lineTotal: number;
   gstPercent: number;
   discountPercent?: number;
+  lines?: QuotationPreviewLine[];
   vendorName?: string;
   vendorAddress?: string;
   vendorState?: string;
@@ -79,9 +94,27 @@ function PartyBox({
 }
 
 export function QuotationPreview({ data }: { data: QuotationPreviewData }) {
-  const specs = data.description.split("\n").map((s) => s.trim()).filter(Boolean);
+  const lines: QuotationPreviewLine[] =
+    data.lines && data.lines.length > 0
+      ? data.lines
+      : [
+          {
+            productName: data.productName,
+            productCode: data.productCode,
+            description: data.description,
+            hsnCode: data.hsnCode,
+            imagePath: data.imagePath,
+            colourName: data.colourName,
+            colourHex: data.colourHex,
+            location: data.location,
+            quantity: data.quantity,
+            unitRate: data.unitRate,
+            lineTotal: data.lineTotal,
+          },
+        ];
+
   const discountPct = data.discountPercent ?? 0;
-  const taxable = data.lineTotal * (1 - discountPct / 100);
+  const taxable = lines.reduce((s, l) => s + l.lineTotal, 0) * (1 - discountPct / 100);
   const cgstRate = data.gstPercent / 2;
   const sgstRate = data.gstPercent / 2;
   const cgstAmt = (taxable * cgstRate) / 100;
@@ -90,6 +123,7 @@ export function QuotationPreview({ data }: { data: QuotationPreviewData }) {
   const grandTotalRaw = taxable + totalGst;
   const grandTotal = Math.round(grandTotalRaw);
   const rounding = grandTotal - grandTotalRaw;
+  const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
   const poDate = typeof data.date === "string" ? data.date : formatDate(data.date);
   const delivery =
     data.deliveryDate == null || data.deliveryDate === ""
@@ -184,41 +218,49 @@ export function QuotationPreview({ data }: { data: QuotationPreviewData }) {
             </tr>
           </thead>
           <tbody>
-            <tr className="align-top">
-              <td className="border border-foreground/40 px-1 py-2 text-center">1</td>
-              <td className="border border-foreground/40 px-2 py-2">
-                <div className="font-semibold">{data.productName}</div>
-                {data.location && <div className="text-muted-foreground">Location: {data.location}</div>}
-                <div className="text-muted-foreground">Colour: {data.colourName}</div>
-                {specs.slice(0, 3).map((s, i) => (
-                  <div key={i} className="text-muted-foreground">
-                    • {s}
-                  </div>
-                ))}
-                {data.imagePath ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={data.imagePath} alt="" className="mt-2 size-12 object-cover" />
-                ) : null}
-              </td>
-              <td className="border border-foreground/40 px-1 py-2 text-center">{data.hsnCode || "—"}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatNumber(data.quantity)}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-center">Nos</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(data.unitRate)}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{discountPct}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(taxable)}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{cgstRate}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(cgstAmt)}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{sgstRate}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(sgstAmt)}</td>
-              <td className="border border-foreground/40 px-1 py-2 text-right font-semibold tabular-nums">
-                {formatINR(taxable + totalGst)}
-              </td>
-            </tr>
+            {lines.map((line, idx) => {
+              const specs = line.description.split("\n").map((s) => s.trim()).filter(Boolean);
+              const lineTaxable = line.lineTotal * (1 - discountPct / 100);
+              const lineCgst = (lineTaxable * cgstRate) / 100;
+              const lineSgst = (lineTaxable * sgstRate) / 100;
+              return (
+                <tr key={`${line.productCode}-${idx}`} className="align-top">
+                  <td className="border border-foreground/40 px-1 py-2 text-center">{idx + 1}</td>
+                  <td className="border border-foreground/40 px-2 py-2">
+                    <div className="font-semibold">{line.productName}</div>
+                    {line.location && <div className="text-muted-foreground">Location: {line.location}</div>}
+                    <div className="text-muted-foreground">Colour: {line.colourName}</div>
+                    {specs.slice(0, 3).map((s, i) => (
+                      <div key={i} className="text-muted-foreground">
+                        • {s}
+                      </div>
+                    ))}
+                    {line.imagePath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={line.imagePath} alt="" className="mt-2 size-12 object-cover" />
+                    ) : null}
+                  </td>
+                  <td className="border border-foreground/40 px-1 py-2 text-center">{line.hsnCode || "—"}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatNumber(line.quantity)}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-center">Nos</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(line.unitRate)}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{discountPct}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(lineTaxable)}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{cgstRate}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(lineCgst)}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{sgstRate}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right tabular-nums">{formatINR(lineSgst)}</td>
+                  <td className="border border-foreground/40 px-1 py-2 text-right font-semibold tabular-nums">
+                    {formatINR(lineTaxable + lineCgst + lineSgst)}
+                  </td>
+                </tr>
+              );
+            })}
             <tr className="bg-secondary/60 font-semibold">
               <td className="border border-foreground/40 px-2 py-1.5" colSpan={3}>
                 Total
               </td>
-              <td className="border border-foreground/40 px-1 py-1.5 text-right tabular-nums">{formatNumber(data.quantity)}</td>
+              <td className="border border-foreground/40 px-1 py-1.5 text-right tabular-nums">{formatNumber(totalQty)}</td>
               <td className="border border-foreground/40 px-1 py-1.5" colSpan={3} />
               <td className="border border-foreground/40 px-1 py-1.5 text-right tabular-nums">{formatINR(taxable)}</td>
               <td className="border border-foreground/40 px-1 py-1.5" />

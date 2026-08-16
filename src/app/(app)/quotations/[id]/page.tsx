@@ -13,7 +13,14 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   const [quotation, session, settings] = await Promise.all([
     prisma.quotation.findUnique({
       where: { id },
-      include: { product: true, colour: true },
+      include: {
+        product: true,
+        colour: true,
+        lines: {
+          include: { product: true, colour: true },
+          orderBy: { sortOrder: "asc" },
+        },
+      },
     }),
     getSession(),
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
@@ -21,19 +28,40 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   if (!quotation) notFound();
   const canWrite = session ? roleAtLeast(session.role, "MANAGER") : false;
 
-  const image = await prisma.productColourImage.findFirst({
-    where: { productId: quotation.productId, colourId: quotation.colourId },
+  const lineImages = await prisma.productColourImage.findMany({
+    where: {
+      OR:
+        quotation.lines.length > 0
+          ? quotation.lines.map((l) => ({ productId: l.productId, colourId: l.colourId }))
+          : [{ productId: quotation.productId, colourId: quotation.colourId }],
+    },
   });
+  const imageFor = (productId: string, colourId: string) =>
+    lineImages.find((i) => i.productId === productId && i.colourId === colourId)?.imagePath ?? "";
+
+  const withImages = {
+    ...quotation,
+    lines:
+      quotation.lines.length > 0
+        ? quotation.lines.map((l) => ({
+            ...l,
+            imagePath: imageFor(l.productId, l.colourId),
+          }))
+        : undefined,
+  };
+
+  const fallbackImage = imageFor(quotation.productId, quotation.colourId);
+  const lineCount = quotation.lines.length || 1;
 
   return (
     <div>
       <PageHeader
         title={quotation.quotationNumber}
-        description="Customer quotation preview — layout matches the exported PDF."
+        description={`Customer quotation · ${lineCount} product line${lineCount === 1 ? "" : "s"} — layout matches the exported PDF.`}
         help={{
           content: (
             <>
-              <p>This matches the exported Quotation PDF. Confirm as a sales order when the customer accepts.</p>
+              <p>Confirm as sales order creates one SO per product line for coordinator verification.</p>
               <p>You can revise, export PDF, or print from the actions above.</p>
             </>
           ),
@@ -56,7 +84,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
             This is a revision of {quotation.revisesQuotationNumber}.
           </div>
         )}
-        <QuotationPreview data={toQuotationPreviewData(quotation, image?.imagePath ?? "", settings.gstPercent)} />
+        <QuotationPreview data={toQuotationPreviewData(withImages, fallbackImage, settings.gstPercent)} />
       </div>
     </div>
   );

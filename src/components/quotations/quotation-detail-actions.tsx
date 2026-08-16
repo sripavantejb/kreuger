@@ -64,7 +64,7 @@ export function QuotationDetailActions({
                 })
               }
             >
-              <ClipboardCheck /> {soPending ? "Confirming…" : "Confirm sales order"}
+              <ClipboardCheck /> {soPending ? "Confirming…" : "Confirm sales order(s)"}
             </Button>
             <Button
               variant="outline"

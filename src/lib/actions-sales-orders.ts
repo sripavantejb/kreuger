@@ -26,41 +26,70 @@ export async function createSalesOrderFromQuotation(input: {
   await requireRole("MANAGER");
   const quotation = await prisma.quotation.findUniqueOrThrow({
     where: { id: input.quotationId },
-    include: { product: true, colour: true },
-  });
-
-  const soNumber = await nextSoNumber();
-  const directory = await getContactDirectory();
-
-  const so = await prisma.salesOrder.create({
-    data: {
-      soNumber,
-      quotationId: quotation.id,
-      productId: quotation.productId,
-      quantity: quotation.quantity,
-      colourId: quotation.colourId,
-      priority: input.priority && isPriority(input.priority) ? input.priority : "NORMAL",
-      status: "pending_verification",
-      customerName: (input.customerName?.trim() || quotation.vendorName || quotation.buyerName || "").trim(),
+    include: {
+      product: true,
+      colour: true,
+      lines: { include: { product: true, colour: true }, orderBy: { sortOrder: "asc" } },
     },
   });
 
-  const alertData = buildSalesOrderConfirmedAlert({
-    soNumber,
-    productName: quotation.product.name,
-    quantity: quotation.quantity,
-    colourName: quotation.colour.name,
-    directory,
-  });
-  const alert = await prisma.alert.create({
-    data: { ...alertData, salesOrderId: so.id },
-  });
-  await maybeSendAlertEmail(alert);
+  const directory = await getContactDirectory();
+  const priority = input.priority && isPriority(input.priority) ? input.priority : "NORMAL";
+  const customerName = (input.customerName?.trim() || quotation.vendorName || quotation.buyerName || "").trim();
+
+  const sourceLines =
+    quotation.lines.length > 0
+      ? quotation.lines.map((l) => ({
+          productId: l.productId,
+          colourId: l.colourId,
+          quantity: l.quantity,
+          productName: l.product.name,
+          colourName: l.colour.name,
+        }))
+      : [
+          {
+            productId: quotation.productId,
+            colourId: quotation.colourId,
+            quantity: quotation.quantity,
+            productName: quotation.product.name,
+            colourName: quotation.colour.name,
+          },
+        ];
+
+  let firstSoId = "";
+  for (const line of sourceLines) {
+    const soNumber = await nextSoNumber();
+    const so = await prisma.salesOrder.create({
+      data: {
+        soNumber,
+        quotationId: quotation.id,
+        productId: line.productId,
+        quantity: line.quantity,
+        colourId: line.colourId,
+        priority,
+        status: "pending_verification",
+        customerName,
+      },
+    });
+    if (!firstSoId) firstSoId = so.id;
+
+    const alertData = buildSalesOrderConfirmedAlert({
+      soNumber,
+      productName: line.productName,
+      quantity: line.quantity,
+      colourName: line.colourName,
+      directory,
+    });
+    const alert = await prisma.alert.create({
+      data: { ...alertData, salesOrderId: so.id },
+    });
+    await maybeSendAlertEmail(alert);
+  }
 
   revalidatePath("/sales-orders");
   revalidatePath("/alerts");
   revalidatePath("/");
-  return so.id;
+  return firstSoId;
 }
 
 export async function createSalesOrderManual(input: {

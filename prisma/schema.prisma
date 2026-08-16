@@ -67,6 +67,7 @@ model Product {
   pricingSlabs    PricingSlab[]
   colourImages    ProductColourImage[]
   quotations      Quotation[]
+  quotationLines  QuotationLine[]
   salesOrders     SalesOrder[]
   orders          OrderConfirmation[]
 }
@@ -78,6 +79,7 @@ model Colour {
 
   productImages ProductColourImage[]
   quotations    Quotation[]
+  quotationLines QuotationLine[]
   salesOrders   SalesOrder[]
   orders        OrderConfirmation[]
 }
@@ -181,9 +183,26 @@ model Quotation {
   paymentTerms     String @default("Advance 100%")
   discountPercent  Float  @default(0)
 
-  product     Product      @relation(fields: [productId], references: [id])
-  colour      Colour       @relation(fields: [colourId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  colour      Colour          @relation(fields: [colourId], references: [id])
+  lines       QuotationLine[]
   salesOrders SalesOrder[]
+}
+
+model QuotationLine {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  quotationId  String @db.ObjectId
+  sortOrder    Int    @default(0)
+  productId    String @db.ObjectId
+  colourId     String @db.ObjectId
+  quantity     Int
+  unitRate     Float
+  lineTotal    Float
+  location     String @default("")
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+  colour    Colour    @relation(fields: [colourId], references: [id])
 }
 
 // Lightweight sales-order gate between customer acceptance and OC release.

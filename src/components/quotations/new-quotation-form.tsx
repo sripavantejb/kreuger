@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { suggestUnitRate } from "@/lib/pricing";
 import { createQuotation } from "@/lib/actions";
 import { COMPANY } from "@/lib/brand";
 import { formatINR } from "@/lib/format";
+import { Plus, Trash2 } from "lucide-react";
 
 type Slab = { minQuantity: number; maxQuantity: number | null; discountPercent: number };
 type ProductData = {
@@ -33,6 +34,20 @@ type ProductData = {
 type Colour = { id: string; name: string; hexCode: string };
 type ColourImage = { productId: string; colourId: string; imagePath: string };
 type LastQuote = { productId: string; unitRate: number; quotationNumber: string; quantity: number };
+
+type DraftLine = {
+  key: string;
+  productId: string;
+  colourId: string;
+  quantity: number;
+  unitRate: number;
+  rateTouched: boolean;
+  location: string;
+};
+
+function newKey() {
+  return `line-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 export function NewQuotationForm({
   products,
@@ -61,10 +76,20 @@ export function NewQuotationForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [productId, setProductId] = useState(initialProductId ?? products[0]?.id ?? "");
-  const [quantity, setQuantity] = useState(initialQuantity ?? 100);
-  const [colourId, setColourId] = useState(initialColourId ?? colours[0]?.id ?? "");
-  const [location, setLocation] = useState(initialLocation ?? "");
+  const defaultProductId = initialProductId ?? products[0]?.id ?? "";
+  const defaultColourId = initialColourId ?? colours[0]?.id ?? "";
+
+  const [lines, setLines] = useState<DraftLine[]>(() => [
+    {
+      key: newKey(),
+      productId: defaultProductId,
+      colourId: defaultColourId,
+      quantity: initialQuantity ?? 100,
+      unitRate: 0,
+      rateTouched: false,
+      location: initialLocation ?? "",
+    },
+  ]);
 
   const [customerName, setCustomerName] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -85,59 +110,64 @@ export function NewQuotationForm({
   const [remarks, setRemarks] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("Advance 100%");
 
-  const product = products.find((p) => p.id === productId) ?? products[0];
-  const colour = colours.find((c) => c.id === colourId) ?? colours[0];
-  const imagePath =
-    colourImages.find((ci) => ci.productId === product?.id && ci.colourId === colour?.id)
-      ?.imagePath ?? "";
-
-  const lastQuote = lastQuotesByProduct.find((q) => q.productId === product?.id) ?? null;
-
-  const suggestion = useMemo(
-    () =>
-      product
+  const resolvedLines = useMemo(() => {
+    return lines.map((line) => {
+      const product = products.find((p) => p.id === line.productId) ?? products[0];
+      const colour = colours.find((c) => c.id === line.colourId) ?? colours[0];
+      const lastQuote = lastQuotesByProduct.find((q) => q.productId === product?.id) ?? null;
+      const suggestion = product
         ? suggestUnitRate({
             baseRate: product.baseRate,
-            quantity,
+            quantity: line.quantity,
             slabs: product.pricingSlabs,
             lastQuotation: lastQuote,
           })
-        : null,
-    [product, quantity, lastQuote]
-  );
+        : null;
+      const unitRate = line.rateTouched ? line.unitRate : (suggestion?.suggestedUnitRate ?? 0);
+      const imagePath =
+        colourImages.find((ci) => ci.productId === product?.id && ci.colourId === colour?.id)?.imagePath ??
+        "";
+      return { line, product, colour, suggestion, unitRate, imagePath };
+    });
+  }, [lines, products, colours, colourImages, lastQuotesByProduct]);
 
-  const [unitRate, setUnitRate] = useState(suggestion?.suggestedUnitRate ?? 0);
-  const [rateTouched, setRateTouched] = useState(false);
-
-  useEffect(() => {
-    if (!rateTouched && suggestion) {
-      setUnitRate(suggestion.suggestedUnitRate);
-    }
-  }, [suggestion, rateTouched]);
-
-  useEffect(() => {
-    setRateTouched(false);
-  }, [productId, quantity]);
-
-  const lineTotal = unitRate * quantity;
-
-  function applySuggested() {
-    if (!suggestion) return;
-    setUnitRate(suggestion.suggestedUnitRate);
-    setRateTouched(false);
+  function updateLine(key: string, patch: Partial<DraftLine>) {
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
 
+  function addLine() {
+    setLines((prev) => [
+      ...prev,
+      {
+        key: newKey(),
+        productId: products[0]?.id ?? "",
+        colourId: colours[0]?.id ?? "",
+        quantity: 1,
+        unitRate: 0,
+        rateTouched: false,
+        location: "",
+      },
+    ]);
+  }
+
+  function removeLine(key: string) {
+    setLines((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.key !== key)));
+  }
+
+  const headerTotal = resolvedLines.reduce((s, r) => s + r.unitRate * r.line.quantity, 0);
+
   function handleSave() {
-    if (!product || !colour) return;
     setError(null);
     startTransition(async () => {
       try {
         const id = await createQuotation({
-          productId: product.id,
-          quantity,
-          colourId: colour.id,
-          unitRate,
-          location,
+          lines: resolvedLines.map((r) => ({
+            productId: r.product!.id,
+            colourId: r.colour!.id,
+            quantity: r.line.quantity,
+            unitRate: r.unitRate,
+            location: r.line.location,
+          })),
           revisesQuotationNumber,
           vendorName: customerName,
           vendorAddress: customerAddress,
@@ -159,31 +189,44 @@ export function NewQuotationForm({
           paymentTerms,
         });
         router.push(`/quotations/${id}`);
-      } catch {
-        setError("Could not save the quotation. Please try again.");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not save the quotation.");
       }
     });
   }
 
-  if (!product || !colour || !suggestion) {
+  if (!products[0] || !colours[0]) {
     return <div className="px-4 py-6 sm:px-6 md:px-8 text-sm text-muted-foreground">No product master data found.</div>;
   }
 
   const previewData = {
     quotationNumber: "DRAFT",
     date: new Date(),
-    productName: product.name,
-    productCode: product.code,
-    description: product.description,
-    hsnCode: product.hsnCode,
-    imagePath,
-    colourName: colour.name,
-    colourHex: colour.hexCode,
-    location,
-    quantity,
-    unitRate,
-    lineTotal,
+    productName: resolvedLines[0]?.product?.name ?? "",
+    productCode: resolvedLines[0]?.product?.code ?? "",
+    description: resolvedLines[0]?.product?.description ?? "",
+    hsnCode: resolvedLines[0]?.product?.hsnCode ?? "",
+    imagePath: resolvedLines[0]?.imagePath ?? "",
+    colourName: resolvedLines[0]?.colour?.name ?? "",
+    colourHex: resolvedLines[0]?.colour?.hexCode,
+    location: resolvedLines[0]?.line.location ?? "",
+    quantity: resolvedLines.reduce((s, r) => s + r.line.quantity, 0),
+    unitRate: resolvedLines[0]?.unitRate ?? 0,
+    lineTotal: headerTotal,
     gstPercent,
+    lines: resolvedLines.map((r) => ({
+      productName: r.product!.name,
+      productCode: r.product!.code,
+      description: r.product!.description,
+      hsnCode: r.product!.hsnCode,
+      imagePath: r.imagePath,
+      colourName: r.colour!.name,
+      colourHex: r.colour!.hexCode,
+      location: r.line.location,
+      quantity: r.line.quantity,
+      unitRate: r.unitRate,
+      lineTotal: r.unitRate * r.line.quantity,
+    })),
     vendorName: customerName,
     vendorAddress: customerAddress,
     vendorState: customerState,
@@ -205,126 +248,164 @@ export function NewQuotationForm({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-8 px-4 py-6 sm:px-6 md:px-8 lg:grid-cols-[400px_1fr]">
+    <div className="grid grid-cols-1 gap-8 px-4 py-6 sm:px-6 md:px-8 lg:grid-cols-[420px_1fr]">
       <Card>
         <CardContent className="space-y-5">
-          <div className="space-y-1.5">
-            <Label htmlFor="product">Product</Label>
-            <Select value={productId} onValueChange={(v) => v && setProductId(v)}>
-              <SelectTrigger id="product" className="w-full">
-                <SelectValue>
-                  {(value: string) => {
-                    const p = products.find((p) => p.id === value);
-                    return p ? `${p.name} (${p.code})` : "";
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Product lines</div>
+            <Button type="button" size="sm" variant="outline" onClick={addLine}>
+              <Plus className="size-3.5" /> Add product
+            </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="colour">Colour</Label>
-              <Select value={colourId} onValueChange={(v) => v && setColourId(v)}>
-                <SelectTrigger id="colour" className="w-full">
-                  <SelectValue>
-                    {(value: string) => colours.find((c) => c.id === value)?.name ?? ""}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {colours.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {resolvedLines.map(({ line, product, suggestion, unitRate }, index) => (
+            <div key={line.key} className="space-y-3 rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">Line {index + 1}</div>
+                {lines.length > 1 && (
+                  <Button type="button" size="icon-sm" variant="ghost" onClick={() => removeLine(line.key)}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
 
-          <div className="rounded-lg border border-border bg-secondary/40 p-3 space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Suggested price
-            </div>
-            <p className="text-sm text-muted-foreground">{suggestion.explanation}</p>
-            <p className="text-xs text-muted-foreground">{suggestion.slabLabel}</p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5 flex-1 min-w-[140px]">
-                <Label htmlFor="unitRate">Unit rate (INR) — editable</Label>
+              <div className="space-y-1.5">
+                <Label>Product</Label>
+                <Select
+                  value={line.productId}
+                  onValueChange={(v) => v && updateLine(line.key, { productId: v, rateTouched: false })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(value: string) => {
+                        const p = products.find((x) => x.id === value);
+                        return p ? `${p.name} (${p.code})` : "";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} ({p.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Quantity</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={line.quantity}
+                    onChange={(e) =>
+                      updateLine(line.key, {
+                        quantity: Math.max(1, Number(e.target.value) || 1),
+                        rateTouched: false,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Colour</Label>
+                  <Select value={line.colourId} onValueChange={(v) => v && updateLine(line.key, { colourId: v })}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {(value: string) => colours.find((c) => c.id === value)?.name ?? ""}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colours.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {suggestion && (
+                <div className="rounded-md bg-secondary/50 p-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">{suggestion.explanation}</p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-1 flex-1 min-w-[120px]">
+                      <Label className="text-xs">Unit rate (editable)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={unitRate}
+                        onChange={(e) =>
+                          updateLine(line.key, {
+                            unitRate: Math.max(0, Number(e.target.value) || 0),
+                            rateTouched: true,
+                          })
+                        }
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        updateLine(line.key, {
+                          unitRate: suggestion.suggestedUnitRate,
+                          rateTouched: false,
+                        })
+                      }
+                    >
+                      Use {formatINR(suggestion.suggestedUnitRate)}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Line total: {formatINR(unitRate * line.quantity)}
+                    {product ? ` · ${product.name}` : ""}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label>Location (optional)</Label>
                 <Input
-                  id="unitRate"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={unitRate}
-                  onChange={(e) => {
-                    setRateTouched(true);
-                    setUnitRate(Math.max(0, Number(e.target.value) || 0));
-                  }}
+                  placeholder="e.g. Reception"
+                  value={line.location}
+                  onChange={(e) => updateLine(line.key, { location: e.target.value })}
                 />
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={applySuggested}>
-                Use suggested {formatINR(suggestion.suggestedUnitRate)}
-              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Line total: <span className="font-medium text-foreground">{formatINR(lineTotal)}</span>
-              {" · "}
-              Suggested never overrides a manager-approved rate silently.
-            </p>
-          </div>
+          ))}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="location">Line location (optional)</Label>
-            <Input
-              id="location"
-              placeholder="e.g. Reception, Workstations"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Quotation total: <span className="font-medium text-foreground">{formatINR(headerTotal)}</span>
+          </p>
 
           <div className="border-t border-border pt-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer</div>
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="customerName">Name</Label>
-                <Input id="customerName" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                <Label>Name</Label>
+                <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="customerAddress">Address</Label>
-                <Textarea id="customerAddress" rows={2} value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} />
+                <Label>Address</Label>
+                <Textarea rows={2} value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="customerState">State</Label>
-                  <Input id="customerState" value={customerState} onChange={(e) => setCustomerState(e.target.value)} />
+                  <Label>State</Label>
+                  <Input value={customerState} onChange={(e) => setCustomerState(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="customerStateCode">State code</Label>
-                  <Input id="customerStateCode" value={customerStateCode} onChange={(e) => setCustomerStateCode(e.target.value)} />
+                  <Label>State code</Label>
+                  <Input value={customerStateCode} onChange={(e) => setCustomerStateCode(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="customerGstin">GSTIN</Label>
-                <Input id="customerGstin" value={customerGstin} onChange={(e) => setCustomerGstin(e.target.value)} />
+                <Label>GSTIN</Label>
+                <Input value={customerGstin} onChange={(e) => setCustomerGstin(e.target.value)} />
               </div>
             </div>
           </div>
@@ -334,67 +415,27 @@ export function NewQuotationForm({
               Ship to (defaults to customer)
             </div>
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="shipToName">Name</Label>
-                <Input id="shipToName" placeholder={customerName || COMPANY.legalName} value={shipToName} onChange={(e) => setShipToName(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="shipToAddress">Address</Label>
-                <Textarea id="shipToAddress" rows={2} value={shipToAddress} onChange={(e) => setShipToAddress(e.target.value)} />
-              </div>
+              <Input placeholder={customerName || COMPANY.legalName} value={shipToName} onChange={(e) => setShipToName(e.target.value)} />
+              <Textarea rows={2} value={shipToAddress} onChange={(e) => setShipToAddress(e.target.value)} />
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="shipToState">State</Label>
-                  <Input id="shipToState" value={shipToState} onChange={(e) => setShipToState(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="shipToStateCode">State code</Label>
-                  <Input id="shipToStateCode" value={shipToStateCode} onChange={(e) => setShipToStateCode(e.target.value)} />
-                </div>
+                <Input value={shipToState} onChange={(e) => setShipToState(e.target.value)} />
+                <Input value={shipToStateCode} onChange={(e) => setShipToStateCode(e.target.value)} />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="shipToGstin">GSTIN</Label>
-                <Input id="shipToGstin" value={shipToGstin} onChange={(e) => setShipToGstin(e.target.value)} />
-              </div>
+              <Input value={shipToGstin} onChange={(e) => setShipToGstin(e.target.value)} />
             </div>
           </div>
 
           <div className="border-t border-border pt-4 space-y-3">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quote details</div>
-            <div className="space-y-1.5">
-              <Label htmlFor="deliveryDate">Delivery date</Label>
-              <Input id="deliveryDate" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="contactPerson">Contact person</Label>
-              <Input id="contactPerson" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} />
-            </div>
+            <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+            <Input placeholder="Contact person" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="contactPhone">Phone</Label>
-                <Input id="contactPhone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="buyerName">Buyer</Label>
-                <Input id="buyerName" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} />
-              </div>
+              <Input placeholder="Phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+              <Input placeholder="Buyer" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="contactEmail">Email</Label>
-              <Input id="contactEmail" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="customerRefNo">Customer / enquiry ref</Label>
-              <Input id="customerRefNo" value={customerRefNo} onChange={(e) => setCustomerRefNo(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="paymentTerms">Payment terms</Label>
-              <Input id="paymentTerms" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="remarks">Remarks</Label>
-              <Textarea id="remarks" rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-            </div>
+            <Input type="email" placeholder="Email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            <Input placeholder="Customer / enquiry ref" value={customerRefNo} onChange={(e) => setCustomerRefNo(e.target.value)} />
+            <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
+            <Textarea rows={2} placeholder="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
