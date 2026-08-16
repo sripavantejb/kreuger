@@ -29,11 +29,11 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
     <div>
       <PageHeader
         title={quotation.quotationNumber}
-        description="Purchase order preview — layout matches the exported PDF."
+        description="Customer quotation preview — layout matches the exported PDF."
         help={{
           content: (
             <>
-              <p>This matches the exported Purchase Order PDF — rates already include quantity discount slabs from Master Data.</p>
+              <p>This matches the exported Quotation PDF. Confirm as a sales order when the customer accepts.</p>
               <p>You can revise, export PDF, or print from the actions above.</p>
             </>
           ),

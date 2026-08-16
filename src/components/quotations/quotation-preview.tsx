@@ -120,14 +120,14 @@ export function QuotationPreview({ data }: { data: QuotationPreviewData }) {
       </div>
 
       <div className="border-b border-foreground/80 py-2 text-center text-sm font-bold tracking-widest">
-        PURCHASE ORDER
+        QUOTATION
       </div>
 
       {/* Meta */}
       <div className="grid grid-cols-1 border-b border-foreground/80 sm:grid-cols-2">
         <div className="space-y-1 border-b border-foreground/80 p-3 sm:border-b-0 sm:border-r">
-          <Meta label="PO No." value={data.quotationNumber} />
-          <Meta label="PO Date" value={poDate} />
+          <Meta label="Quotation No." value={data.quotationNumber} />
+          <Meta label="Quote Date" value={poDate} />
           <Meta label="State" value={COMPANY.state} />
           <Meta label="State Code" value={COMPANY.stateCode} />
           <Meta label="Place of Supply" value={data.shipToState || COMPANY.state} />
@@ -139,14 +139,14 @@ export function QuotationPreview({ data }: { data: QuotationPreviewData }) {
           <Meta label="Phone No." value={data.contactPhone} />
           <Meta label="Email" value={data.contactEmail} />
           <Meta label="Buyer" value={data.buyerName} />
-          <Meta label="Vendor Ref No." value={data.vendorRefNo} />
+          <Meta label="Customer Ref No." value={data.vendorRefNo} />
         </div>
       </div>
 
       {/* Parties */}
       <div className="flex flex-col sm:flex-row">
         <PartyBox
-          title="Details of Vendor"
+          title="Customer / Bill To"
           name={data.vendorName}
           address={data.vendorAddress}
           state={data.vendorState}

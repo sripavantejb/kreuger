@@ -15,6 +15,10 @@ function formatDuration(ms: number): string {
   return parts.join(" ");
 }
 
+function formatDate(d: Date): string {
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export function StageCountdown({ enteredAt, deadlineDays }: { enteredAt: string; deadlineDays: number }) {
   const [now, setNow] = useState<number | null>(null);
 
@@ -27,16 +31,31 @@ export function StageCountdown({ enteredAt, deadlineDays }: { enteredAt: string;
     return () => clearInterval(id);
   }, []);
 
-  if (now === null) return <span className="text-muted-foreground">…</span>;
+  const entered = new Date(enteredAt);
+  const expected = new Date(entered.getTime() + deadlineDays * 86_400_000);
 
-  const entered = new Date(enteredAt).getTime();
-  const deadlineMs = deadlineDays * 24 * 60 * 60 * 1000;
-  const remaining = entered + deadlineMs - now;
+  if (now === null) {
+    return (
+      <span className="text-muted-foreground">
+        Started {formatDate(entered)} · Expected {formatDate(expected)}
+      </span>
+    );
+  }
+
+  const remaining = expected.getTime() - now;
   const overdue = remaining < 0;
+  const status = overdue ? "DELAYED" : remaining < deadlineDays * 86_400_000 * 0.2 ? "AT RISK" : "ON TRACK";
 
   return (
-    <span className={overdue ? "font-medium text-[var(--status-breach)]" : "text-foreground"}>
-      {overdue ? `Overdue by ${formatDuration(remaining)}` : `${formatDuration(remaining)} remaining`}
+    <span className="inline-flex flex-col gap-0.5 sm:inline">
+      <span className="text-muted-foreground">
+        Started {formatDate(entered)} · Expected {formatDate(expected)} · Now {formatDate(new Date(now))}
+      </span>
+      <span className={overdue ? "font-medium text-[var(--status-breach)]" : "font-medium text-foreground"}>
+        Status: {status}
+        {" · "}
+        {overdue ? `Overdue by ${formatDuration(remaining)}` : `${formatDuration(remaining)} remaining`}
+      </span>
     </span>
   );
 }

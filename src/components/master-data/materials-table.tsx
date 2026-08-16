@@ -9,20 +9,31 @@ import { updateMaterial } from "@/lib/actions";
 import { addMaterialRow, deleteMaterialRow, updateMaterialName } from "@/lib/actions-master-data";
 import { Plus, Trash2 } from "lucide-react";
 
-type Material = { id: string; materialName: string; unit: string; quantityPerUnit: number };
+type Material = {
+  id: string;
+  materialName: string;
+  unit: string;
+  quantityPerUnit: number;
+  demoAvailableQty: number;
+};
 
 function Row({ material, readOnly }: { material: Material; readOnly: boolean }) {
   const [name, setName] = useState(material.materialName);
   const [unit, setUnit] = useState(material.unit);
   const [qty, setQty] = useState(material.quantityPerUnit);
+  const [available, setAvailable] = useState(material.demoAvailableQty);
   const [pending, startTransition] = useTransition();
   const [deleting, startDelete] = useTransition();
-  const dirty = qty !== material.quantityPerUnit || name !== material.materialName || unit !== material.unit;
+  const dirty =
+    qty !== material.quantityPerUnit ||
+    name !== material.materialName ||
+    unit !== material.unit ||
+    available !== material.demoAvailableQty;
 
   function save() {
     startTransition(async () => {
       await Promise.all([
-        updateMaterial({ id: material.id, quantityPerUnit: qty }),
+        updateMaterial({ id: material.id, quantityPerUnit: qty, demoAvailableQty: available }),
         updateMaterialName({ id: material.id, materialName: name, unit }),
       ]);
       toast.success(`${name} updated`);
@@ -46,6 +57,18 @@ function Row({ material, readOnly }: { material: Material; readOnly: boolean }) 
           disabled={readOnly}
           onChange={(e) => setQty(Number(e.target.value) || 0)}
           className="w-28"
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          min={0}
+          step={0.1}
+          value={available}
+          disabled={readOnly}
+          onChange={(e) => setAvailable(Number(e.target.value) || 0)}
+          className="w-28"
+          title="Demo stock — not live SAP inventory"
         />
       </TableCell>
       {!readOnly && (
@@ -81,13 +104,17 @@ export function MaterialsTable({
   const [pending, startTransition] = useTransition();
   return (
     <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Demo available qty is sample on-hand stock for readiness checks — not live SAP inventory.
+      </p>
       <div className="border border-border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Material</TableHead>
               <TableHead>Unit</TableHead>
-              <TableHead>Quantity per unit</TableHead>
+              <TableHead>Qty per unit</TableHead>
+              <TableHead>Demo available</TableHead>
               {!readOnly && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -97,8 +124,8 @@ export function MaterialsTable({
             ))}
             {materials.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
-                  No materials.
+                <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                  No materials yet.
                 </TableCell>
               </TableRow>
             )}
@@ -112,7 +139,7 @@ export function MaterialsTable({
           disabled={pending}
           onClick={() => startTransition(() => addMaterialRow(productId))}
         >
-          <Plus /> Add material
+          <Plus className="size-3.5" /> Add material
         </Button>
       )}
     </div>

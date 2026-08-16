@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { deadlineStatus, formatDate, formatNumber, statusClasses } from "@/lib/format";
 import { FINISHED_GOODS_STAGE } from "@/lib/stages";
+import { priorityBadgeClass } from "@/lib/priority";
 import { Plus, ClipboardList } from "lucide-react";
 import { ListToolbar } from "@/components/layout/list-toolbar";
 import { ExportCsvButton } from "@/components/layout/export-csv-button";
@@ -61,6 +62,7 @@ export default async function OrdersPage({
 
   const rowsForCsv = ocs.map((oc) => ({
     "OC number": oc.ocNumber,
+    Priority: oc.priority,
     Product: oc.product.name,
     Colour: oc.colour.name,
     Quantity: oc.quantity,
@@ -116,6 +118,7 @@ export default async function OrdersPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>OC number</TableHead>
+                  <TableHead>Priority</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
                   <TableHead>Target</TableHead>
@@ -142,6 +145,11 @@ export default async function OrdersPage({
                     >
                       <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
                         {oc.ocNumber}
+                      </TableCell>
+                      <TableCell className="relative z-0">
+                        <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${priorityBadgeClass(oc.priority)}`}>
+                          {oc.priority}
+                        </span>
                       </TableCell>
                       <TableCell className="relative z-0 text-muted-foreground">
                         <span className="text-foreground">{oc.product.name}</span>

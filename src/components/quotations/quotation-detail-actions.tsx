@@ -13,7 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { deleteQuotation } from "@/lib/actions";
-import { Download, Trash2, Copy } from "lucide-react";
+import { createSalesOrderFromQuotation } from "@/lib/actions-sales-orders";
+import { Download, Trash2, Copy, ClipboardCheck } from "lucide-react";
 
 export function QuotationDetailActions({
   quotationId,
@@ -35,6 +36,7 @@ export function QuotationDetailActions({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [soPending, startSo] = useTransition();
 
   return (
     <>
@@ -52,6 +54,18 @@ export function QuotationDetailActions({
 
         {canWrite && (
           <>
+            <Button
+              variant="outline"
+              disabled={soPending}
+              onClick={() =>
+                startSo(async () => {
+                  const id = await createSalesOrderFromQuotation({ quotationId });
+                  router.push(`/sales-orders/${id}`);
+                })
+              }
+            >
+              <ClipboardCheck /> {soPending ? "Confirming…" : "Confirm sales order"}
+            </Button>
             <Button
               variant="outline"
               nativeButton={false}

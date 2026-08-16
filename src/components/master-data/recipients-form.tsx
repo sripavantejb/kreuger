@@ -16,6 +16,8 @@ type EscalationContacts = {
   procurementHeadEmail: string;
   dispatchHeadName: string;
   dispatchHeadEmail: string;
+  salesCoordinatorName: string;
+  salesCoordinatorEmail: string;
 };
 
 function DepartmentContactRow({ dept, readOnly }: { dept: Department; readOnly: boolean }) {
@@ -86,7 +88,9 @@ export function RecipientsForm({
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-medium text-muted-foreground">Escalation contacts (deadline breaches)</h3>
+        <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+          Escalation &amp; sales contacts
+        </h3>
         <Card className="max-w-xl">
           <CardContent className="space-y-4">
             {(
@@ -94,6 +98,7 @@ export function RecipientsForm({
                 ["plantHeadName", "plantHeadEmail", "Plant head"],
                 ["procurementHeadName", "procurementHeadEmail", "Procurement head"],
                 ["dispatchHeadName", "dispatchHeadEmail", "Dispatch head"],
+                ["salesCoordinatorName", "salesCoordinatorEmail", "Sales coordinator"],
               ] as const
             ).map(([nameKey, emailKey, label]) => (
               <div key={nameKey} className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -10,10 +10,12 @@ export function CapacityPanel({
   result,
   targetDays,
   materials,
+  constants,
 }: {
   result: PlanResult;
   targetDays: number;
   materials: MaterialLine[];
+  constants?: { procurementDays: number; rampDays: number; shiftHours: number };
 }) {
   if (result.status === "blocked") {
     const names = result.bottlenecks.map((b) => b.departmentName);
@@ -49,6 +51,13 @@ export function CapacityPanel({
 
   return (
     <div className="animate-in fade-in slide-in-from-top-1 duration-300 space-y-4">
+      {constants && (
+        <p className="text-xs text-muted-foreground">
+          Formula: production window = target ({targetDays}d) − procurement ({constants.procurementDays}d) − ramp (
+          {constants.rampDays}d). Required rate = quantity ÷ window. Workers = ceil(rate ÷ units per worker per day).
+          Values come from Master Data — change the timeline to recalculate.
+        </p>
+      )}
       <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
         <div>
           Production window: <span className="font-medium text-foreground">{formatDays(result.productionWindow)}</span>
@@ -56,6 +65,9 @@ export function CapacityPanel({
         <div>
           Required rate:{" "}
           <span className="font-medium text-foreground">{result.requiredRate.toFixed(2)} units/day</span>
+        </div>
+        <div>
+          Overall: <span className="font-medium text-[var(--status-ok)]">Achievable</span>
         </div>
       </div>
 

@@ -32,6 +32,8 @@ model Settings {
   procurementHeadEmail String @default("procurement.head@kreuger.local")
   dispatchHeadName     String @default("Dispatch Head")
   dispatchHeadEmail    String @default("dispatch.head@kreuger.local")
+  salesCoordinatorName  String @default("Sales Coordinator")
+  salesCoordinatorEmail String @default("sales.coordinator@kreuger.local")
 }
 
 // Named holidays excluded from working-day counts, alongside weeklyOff.
@@ -65,6 +67,7 @@ model Product {
   pricingSlabs    PricingSlab[]
   colourImages    ProductColourImage[]
   quotations      Quotation[]
+  salesOrders     SalesOrder[]
   orders          OrderConfirmation[]
 }
 
@@ -75,6 +78,7 @@ model Colour {
 
   productImages ProductColourImage[]
   quotations    Quotation[]
+  salesOrders   SalesOrder[]
   orders        OrderConfirmation[]
 }
 
@@ -128,6 +132,8 @@ model ProductMaterial {
   materialName    String
   unit            String
   quantityPerUnit Float
+  /// Demo on-hand stock for Stage-1 material readiness (not live SAP inventory).
+  demoAvailableQty Float @default(0)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
@@ -154,8 +160,8 @@ model Quotation {
   revisesQuotationNumber String? // set when this quotation was created via "Revise"
   location            String  @default("") // e.g. "Reception", "Workstations" — line description location
 
-  // Purchase Order party / delivery fields (Maruthi-style commercial PDF)
-  vendorName       String @default("")
+  // Customer / commercial party fields on the quotation PDF
+  vendorName       String @default("") // customer / bill-to name (legacy field name)
   vendorAddress    String @default("")
   vendorState      String @default("")
   vendorStateCode  String @default("")
@@ -170,13 +176,45 @@ model Quotation {
   contactPhone     String @default("")
   contactEmail     String @default("")
   buyerName        String @default("")
-  vendorRefNo      String @default("")
+  vendorRefNo      String @default("") // customer / enquiry ref
   remarks          String @default("")
   paymentTerms     String @default("Advance 100%")
   discountPercent  Float  @default(0)
 
-  product Product @relation(fields: [productId], references: [id])
-  colour  Colour  @relation(fields: [colourId], references: [id])
+  product     Product      @relation(fields: [productId], references: [id])
+  colour      Colour       @relation(fields: [colourId], references: [id])
+  salesOrders SalesOrder[]
+}
+
+// Lightweight sales-order gate between customer acceptance and OC release.
+// Does not replace Zoho CRM — operational verification only.
+model SalesOrder {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  soNumber      String   @unique
+  quotationId   String?  @db.ObjectId
+  productId     String   @db.ObjectId
+  quantity      Int
+  colourId      String   @db.ObjectId
+  priority      String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status        String   // confirmed | pending_verification | approved | sent_back | rejected | released
+  customerName  String   @default("")
+  notes         String   @default("")
+  sendBackReason String  @default("")
+  rejectReason  String   @default("")
+
+  itemCodeVerified     Boolean @default(false)
+  drawingVerified      Boolean @default(false)
+  bomVerified          Boolean @default(false)
+  orderDetailsVerified Boolean @default(false)
+
+  createdAt   DateTime  @default(now())
+  verifiedAt  DateTime?
+  releasedAt  DateTime?
+
+  quotation         Quotation?         @relation(fields: [quotationId], references: [id])
+  product           Product            @relation(fields: [productId], references: [id])
+  colour            Colour             @relation(fields: [colourId], references: [id])
+  orderConfirmation OrderConfirmation?
 }
 
 model OrderConfirmation {
@@ -186,12 +224,15 @@ model OrderConfirmation {
   quantity     Int
   colourId     String   @db.ObjectId
   targetDays   Int
+  priority     String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  salesOrderId String?  @unique @db.ObjectId
   plannedAt    DateTime @default(now())
   currentStage String
-  status       String   // planning | in_progress | closed
+  status       String   // planning | in_progress | closed | cancelled
 
-  product Product @relation(fields: [productId], references: [id])
-  colour  Colour  @relation(fields: [colourId], references: [id])
+  product    Product     @relation(fields: [productId], references: [id])
+  colour     Colour      @relation(fields: [colourId], references: [id])
+  salesOrder SalesOrder? @relation(fields: [salesOrderId], references: [id])
 
   plan   OcDepartmentPlan[]
   events OcStageEvent[]
@@ -220,6 +261,7 @@ model OcStageEvent {
   durationHours Float?
   deadlineDays  Float
   breached      Boolean   @default(false)
+  updatedBy     String    @default("") // display name of user who opened/closed the stage
 
   oc OrderConfirmation @relation(fields: [ocId], references: [id], onDelete: Cascade)
 }
@@ -259,13 +301,14 @@ model ManpowerPlanLine {
 model Alert {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   ocId           String?  @db.ObjectId
-  type           String   // stage_entry | deadline_breach
+  type           String   // stage_entry | deadline_breach | sales_order_confirmed | follow_up_reminder | escalation
   recipient      String
   recipientEmail String   @default("")
   subject        String
   body           String
   createdAt      DateTime @default(now())
   emailSent      Boolean  @default(false)
+  salesOrderId   String?  @db.ObjectId
 
   oc OrderConfirmation? @relation(fields: [ocId], references: [id], onDelete: Cascade)
 }

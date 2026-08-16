@@ -222,6 +222,8 @@ export async function updateEscalationContacts(input: {
   procurementHeadEmail: string;
   dispatchHeadName: string;
   dispatchHeadEmail: string;
+  salesCoordinatorName: string;
+  salesCoordinatorEmail: string;
 }) {
   await requireRole("ADMIN");
   await prisma.settings.update({ where: { id: 1 }, data: input });

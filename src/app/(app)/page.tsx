@@ -9,16 +9,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { deadlineStatus, formatDays, formatNumber, statusClasses } from "@/lib/format";
 import { FINISHED_GOODS_STAGE } from "@/lib/stages";
-import { ClipboardList, AlertTriangle, FileText } from "lucide-react";
+import { computeMaterialRequirements } from "@/lib/materials";
+import { priorityBadgeClass } from "@/lib/priority";
+import { ClipboardList, AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   await syncBreaches();
 
-  const [ocs, quotationsThisMonth] = await Promise.all([
+  const [ocs, quotationsThisMonth, products, pendingSos] = await Promise.all([
     prisma.orderConfirmation.findMany({
-      include: { product: true, colour: true, events: { orderBy: { enteredAt: "desc" } } },
+      include: {
+        product: { include: { materials: true } },
+        colour: true,
+        events: { orderBy: { enteredAt: "desc" } },
+        plan: { include: { department: true } },
+      },
       orderBy: { plannedAt: "desc" },
     }),
     (async () => {
@@ -26,118 +33,180 @@ export default async function DashboardPage() {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       return prisma.quotation.count({ where: { createdAt: { gte: start } } });
     })(),
+    prisma.product.findMany({ include: { materials: true } }),
+    prisma.salesOrder.count({ where: { status: "pending_verification" } }),
   ]);
 
-  const activeOcs = ocs.filter((oc) => oc.status !== "closed" && oc.status !== "cancelled");
+  const activeOcs = ocs.filter((oc) => oc.status === "in_progress");
+  const completedOcs = ocs.filter((oc) => oc.status === "closed");
   const rows = ocs.map((oc) => {
     const openEvent = oc.events.find((e) => !e.exitedAt);
     let daysInStage = 0;
     let status: "ok" | "warn" | "breach" | null = null;
     if (openEvent) {
-      // Server component: freshly computed per request, not memoized — safe to read the clock here.
       // eslint-disable-next-line react-hooks/purity
       daysInStage = (Date.now() - openEvent.enteredAt.getTime()) / 86_400_000;
       status = deadlineStatus(daysInStage, openEvent.deadlineDays, openEvent.breached);
     }
     return { oc, openEvent, daysInStage, status };
   });
-  const atRisk = rows.filter((r) => r.status === "warn" || r.status === "breach");
+  const delayed = rows.filter((r) => r.status === "breach" && r.oc.status === "in_progress");
+  const atRisk = rows.filter((r) => r.status === "warn" && r.oc.status === "in_progress");
+  const dueSoon = rows.filter(
+    (r) => r.oc.status === "in_progress" && r.openEvent && r.daysInStage / Math.max(r.openEvent.deadlineDays, 0.01) >= 0.7
+  );
+
+  // Stage queue bottlenecks among active OCs
+  const stageCounts = new Map<string, number>();
+  for (const oc of activeOcs) {
+    stageCounts.set(oc.currentStage, (stageCounts.get(oc.currentStage) ?? 0) + 1);
+  }
+  const topStages = [...stageCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  // Demo material shortages across active OCs (aggregated by material name)
+  const shortageMap = new Map<string, { unit: string; shortage: number }>();
+  for (const oc of activeOcs) {
+    for (const line of computeMaterialRequirements(oc.product.materials, oc.quantity)) {
+      if (line.status !== "SHORTAGE") continue;
+      const prev = shortageMap.get(line.materialName);
+      shortageMap.set(line.materialName, {
+        unit: line.unit,
+        shortage: (prev?.shortage ?? 0) + line.shortage,
+      });
+    }
+  }
+  const shortages = [...shortageMap.entries()].slice(0, 3);
+
+  // Sample utilisation from first active OC plan if present
+  const utilHints: { name: string; pct: number }[] = [];
+  const sample = activeOcs[0];
+  if (sample?.plan.length) {
+    for (const p of sample.plan) {
+      const ceiling = Math.min(
+        p.department.maxUnitsPerDay,
+        p.department.headcount * p.department.unitsPerWorkerPerDay
+      );
+      const rate = sample.quantity / Math.max(sample.targetDays - 3 - 1.5, 0.1);
+      utilHints.push({
+        name: p.department.name,
+        pct: Math.min(100, Math.round((rate / Math.max(ceiling, 0.01)) * 100)),
+      });
+    }
+  }
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        description="Live view of orders in production and this month's quoting activity."
+        description="Plant-manager snapshot: OCs, delays, bottlenecks and quoting activity."
         help={{
           content: (
             <>
-              <p>The dashboard is a read-only snapshot — nothing here can be edited.</p>
-              <ul>
-                <li><strong>Orders in production</strong> — every order that has been released and hasn&apos;t reached Finished Goods yet, with its current stage and deadline status.</li>
-                <li><strong>This month&apos;s quoting activity</strong> — quotations created in the current calendar month.</li>
-              </ul>
-              <p>Deadline colours: on track, at risk, or overdue — based on the order&apos;s target timeline versus today&apos;s date.</p>
+              <p>Read-only operational snapshot. Material shortages use demo stock from Master Data — not SAP.</p>
+              <p>{pendingSos} sales order(s) awaiting coordinator verification.</p>
             </>
           ),
         }}
       />
       <PageBody className="space-y-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Active OCs"
-            value={activeOcs.length}
-            hint="Currently in production"
-            icon={<ClipboardList className="size-4" />}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
-          />
-          <StatCard
-            label="At risk"
-            value={atRisk.length}
-            tone={atRisk.length > 0 ? "danger" : "default"}
-            hint="Approaching or breached"
-            icon={<AlertTriangle className="size-4" />}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
-            style={{ animationDelay: "80ms" }}
-          />
-          <StatCard
-            label="Purchase orders"
-            value={quotationsThisMonth}
-            hint="Created this month"
-            icon={<FileText className="size-4" />}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both"
-            style={{ animationDelay: "160ms" }}
-          />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <StatCard label="Active OCs" value={activeOcs.length} hint="In production" icon={<ClipboardList className="size-4" />} />
+          <StatCard label="At risk" value={atRisk.length} tone={atRisk.length ? "danger" : "default"} hint="Approaching deadline" icon={<AlertTriangle className="size-4" />} />
+          <StatCard label="Delayed" value={delayed.length} tone={delayed.length ? "danger" : "default"} hint="Deadline breached" icon={<AlertTriangle className="size-4" />} />
+          <StatCard label="Due soon" value={dueSoon.length} hint="≥70% of stage deadline" icon={<ClipboardList className="size-4" />} />
+          <StatCard label="Completed" value={completedOcs.length} hint="Finished goods" icon={<CheckCircle2 className="size-4" />} />
         </div>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Quotations" value={quotationsThisMonth} hint="Created this month" icon={<FileText className="size-4" />} />
+          <StatCard label="SO pending" value={pendingSos} hint="Awaiting verification" icon={<ClipboardList className="size-4" />} />
+          <StatCard label="Products" value={products.length} hint="In master data" icon={<FileText className="size-4" />} />
+        </div>
+
+        {(topStages.length > 0 || shortages.length > 0 || utilHints.length > 0) && (
+          <div>
+            <SectionTitle>Bottlenecks</SectionTitle>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {topStages.map(([stage, count]) => (
+                <Card key={stage}>
+                  <CardContent className="py-4">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Stage queue</div>
+                    <div className="mt-1 font-semibold">{stage}</div>
+                    <div className="text-sm text-muted-foreground">{count} order{count === 1 ? "" : "s"} waiting</div>
+                  </CardContent>
+                </Card>
+              ))}
+              {shortages.map(([name, info]) => (
+                <Card key={name}>
+                  <CardContent className="py-4">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Material (demo)</div>
+                    <div className="mt-1 font-semibold">{name}</div>
+                    <div className="text-sm text-[var(--status-breach)]">
+                      {formatNumber(info.shortage)} {info.unit} shortage
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {utilHints.slice(0, 2).map((u) => (
+                <Card key={u.name}>
+                  <CardContent className="py-4">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Capacity hint</div>
+                    <div className="mt-1 font-semibold">{u.name}</div>
+                    <div className="text-sm text-muted-foreground">~{u.pct}% vs ceiling (sample active OC)</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
-          <SectionTitle>Orders in production</SectionTitle>
-          <Card className="py-0 animate-in fade-in duration-500 fill-mode-both" style={{ animationDelay: "220ms" }}>
+          <SectionTitle>Production pipeline</SectionTitle>
+          <Card className="py-0">
             <CardContent className="p-0">
               {rows.length === 0 ? (
                 <EmptyState
                   title="No orders yet"
-                  description="Released order confirmations will appear here with live stage and deadline status."
+                  description="Released order confirmations appear here with stage and deadline status."
                   icon={<ClipboardList className="size-5" />}
                 />
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>OC number</TableHead>
+                      <TableHead>OC</TableHead>
+                      <TableHead>Priority</TableHead>
                       <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead>Current stage</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead>Stage</TableHead>
                       <TableHead className="text-right">Days in stage</TableHead>
-                      <TableHead>Deadline status</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.map(({ oc, daysInStage, status }) => (
-                      <ClickableTableRow
-                        key={oc.id}
-                        href={`/orders/${oc.id}`}
-                        label={`Open order ${oc.ocNumber}`}
-                      >
-                        <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
-                          {oc.ocNumber}
+                      <ClickableTableRow key={oc.id} href={`/orders/${oc.id}`} label={`Open order ${oc.ocNumber}`}>
+                        <TableCell className="font-semibold">{oc.ocNumber}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${priorityBadgeClass(oc.priority)}`}>
+                            {oc.priority}
+                          </span>
                         </TableCell>
-                        <TableCell className="relative z-0 text-muted-foreground">
-                          <span className="text-foreground">{oc.product.name}</span>
+                        <TableCell>
+                          {oc.product.name}
                           <span className="mx-1.5 text-border">·</span>
-                          {oc.colour.name}
+                          <span className="text-muted-foreground">{oc.colour.name}</span>
                         </TableCell>
-                        <TableCell className="relative z-0 text-right tabular-nums font-medium">
-                          {formatNumber(oc.quantity)}
-                        </TableCell>
-                        <TableCell className="relative z-0">{oc.currentStage}</TableCell>
-                        <TableCell className="relative z-0 text-right tabular-nums text-muted-foreground">
+                        <TableCell className="text-right tabular-nums">{formatNumber(oc.quantity)}</TableCell>
+                        <TableCell>{oc.currentStage}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
                           {oc.currentStage === FINISHED_GOODS_STAGE ? "—" : formatDays(daysInStage)}
                         </TableCell>
-                        <TableCell className="relative z-0">
+                        <TableCell>
                           {status ? (
                             <Badge
                               variant="outline"
-                              className={`${statusClasses[status].text} ${statusClasses[status].bg} border-transparent ${status === "breach" ? "animate-pulse" : ""}`}
+                              className={`${statusClasses[status].text} ${statusClasses[status].bg} border-transparent`}
                             >
                               {statusClasses[status].label}
                             </Badge>

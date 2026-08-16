@@ -13,8 +13,11 @@ import { StageBreakdown } from "@/components/orders/stage-breakdown";
 import { AdvanceStageButton } from "@/components/orders/advance-stage-button";
 import { CancelOrderButton } from "@/components/orders/cancel-order-button";
 import { StageCountdown } from "@/components/orders/stage-countdown";
+import { MaterialsRequirementsTable } from "@/components/orders/materials-requirements-table";
 import { buildStageList, nextStage, isTerminalStage } from "@/lib/stages";
 import { formatNumber } from "@/lib/format";
+import { priorityBadgeClass } from "@/lib/priority";
+import { computeMaterialRequirements } from "@/lib/materials";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +29,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     prisma.orderConfirmation.findUnique({
       where: { id },
       include: {
-        product: true,
+        product: { include: { materials: true } },
         colour: true,
+        salesOrder: true,
         events: { orderBy: { enteredAt: "asc" } },
         plan: { include: { department: true } },
       },
@@ -43,6 +47,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const breachedStages = new Set(oc.events.filter((e) => e.breached).map((e) => e.stageName));
   const openEvent = oc.events.find((e) => !e.exitedAt);
   const active = oc.status !== "closed" && oc.status !== "cancelled";
+  const materialLines = computeMaterialRequirements(oc.product.materials, oc.quantity);
 
   return (
     <div>
@@ -52,18 +57,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         help={{
           content: (
             <>
-              <p>This is the full record for one order confirmation, from release to Finished Goods.</p>
+              <p>Full record for one order confirmation — capacity, materials, stages and delay history.</p>
               <ul>
-                <li><strong>Capacity plan</strong> — the department-by-department worker count computed at release time from the target timeline.</li>
-                <li><strong>Stage tracker</strong> — advance the order to the next department as production progresses; each move is timestamped and can fire a stage-entry alert.</li>
-                <li><strong>Delay breakdown</strong> — if the order is running late, shows which stage is behind and by how much.</li>
+                <li><strong>Capacity plan</strong> — workers and stage days from release-time planning.</li>
+                <li><strong>Materials</strong> — required vs demo available stock (not SAP).</li>
+                <li><strong>Stage tracker</strong> — advance production; breaches create escalation alerts.</li>
+                <li><strong>Delay history</strong> — planned vs actual to answer why an OC was late.</li>
               </ul>
-              <p>Edit or cancel an order from the actions above if it needs correcting.</p>
             </>
           ),
         }}
         actions={
           <div className="flex w-full flex-wrap items-center gap-2">
+            <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${priorityBadgeClass(oc.priority)}`}>
+              {oc.priority}
+            </span>
             <Badge
               variant="outline"
               className={`border-transparent capitalize ${
@@ -74,6 +82,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             >
               {oc.status.replace("_", " ")}
             </Badge>
+            {oc.salesOrder && (
+              <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/sales-orders/${oc.salesOrder.id}`} />}>
+                {oc.salesOrder.soNumber}
+              </Button>
+            )}
             <Button variant="outline" nativeButton={false} render={<Link href={`/manpower/${oc.id}`} />}>
               <Users2 /> Manpower plan
             </Button>
@@ -92,11 +105,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <div className="text-sm">
                   {openEvent && !isTerminalStage(oc.currentStage) && (
                     <>
-                      <span className="text-muted-foreground">Current stage — </span>
+                      <div className="mb-1 font-medium">{oc.currentStage}</div>
                       <StageCountdown
                         enteredAt={openEvent.enteredAt.toISOString()}
                         deadlineDays={openEvent.deadlineDays}
                       />
+                      {openEvent.updatedBy && (
+                        <div className="mt-1 text-xs text-muted-foreground">Updated by {openEvent.updatedBy}</div>
+                      )}
                     </>
                   )}
                 </div>
@@ -108,7 +124,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
         {oc.plan.length > 0 && (
           <div>
-            <h2 className="mb-3 text-sm font-semibold">Capacity plan</h2>
+            <h2 className="mb-3 text-sm font-semibold">Capacity plan at release</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Workers and stage days computed from target {oc.targetDays} days using department rates from Master Data.
+              Adjust timelines on Manpower for what-if scenarios.
+            </p>
             <div className="flex flex-wrap gap-6 text-sm">
               {oc.plan
                 .slice()
@@ -119,6 +139,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <span className="font-medium text-foreground">{p.workersRequired} workers</span>
                     <span className="mx-1">·</span>
                     {p.stageDays.toFixed(2)} days
+                    <span className="mx-1">·</span>
+                    {p.stageHours.toFixed(1)} hours
                   </div>
                 ))}
             </div>
@@ -126,7 +148,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         )}
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Delay history</h2>
+          <h2 className="mb-3 text-sm font-semibold">Material requirements</h2>
+          <MaterialsRequirementsTable lines={materialLines} />
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-sm font-semibold">Delay history — why was this OC late?</h2>
           <StageBreakdown events={oc.events} />
         </div>
       </div>

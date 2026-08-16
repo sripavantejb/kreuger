@@ -206,13 +206,13 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
         </View>
 
         <View style={styles.titleBar}>
-          <Text style={styles.titleText}>PURCHASE ORDER</Text>
+          <Text style={styles.titleText}>QUOTATION</Text>
         </View>
 
         <View style={styles.metaGrid}>
           <View style={styles.metaCol}>
-            <MetaLine label="PO No." value={data.quotationNumber} />
-            <MetaLine label="PO Date" value={formatDate(data.date)} />
+            <MetaLine label="Quotation No." value={data.quotationNumber} />
+            <MetaLine label="Quote Date" value={formatDate(data.date)} />
             <MetaLine label="State" value={COMPANY.state} />
             <MetaLine label="State Code" value={COMPANY.stateCode} />
             <MetaLine label="Place of Supply" value={data.shipToState || COMPANY.state} />
@@ -224,14 +224,14 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
             <MetaLine label="Phone No." value={data.contactPhone} />
             <MetaLine label="Email" value={data.contactEmail} />
             <MetaLine label="Buyer" value={data.buyerName} />
-            <MetaLine label="Vendor Ref No." value={data.vendorRefNo} />
+            <MetaLine label="Customer Ref No." value={data.vendorRefNo} />
           </View>
         </View>
 
         <View style={styles.partyRow}>
           <View style={styles.partyBox}>
             <View style={styles.partyHead}>
-              <Text style={styles.partyHeadText}>Details of Vendor</Text>
+              <Text style={styles.partyHeadText}>Customer / Bill To</Text>
             </View>
             <View style={styles.partyBody}>
               <Text style={[styles.partyLine, { fontWeight: 700 }]}>{data.vendorName || "—"}</Text>

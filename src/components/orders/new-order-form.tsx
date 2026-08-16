@@ -17,13 +17,16 @@ import { CapacityPanel } from "./capacity-panel";
 import { planCapacity, type PlanningDepartment } from "@/lib/planning";
 import { applyProductDepartmentRates, type DepartmentRateOverride } from "@/lib/product-department-rates";
 import { createOrder } from "@/lib/actions";
+import { PRIORITIES, type Priority } from "@/lib/priority";
+import { computeMaterialRequirements } from "@/lib/materials";
+import { MaterialsRequirementsTable } from "./materials-requirements-table";
 
 type ProductData = {
   id: string;
   name: string;
   code: string;
   defaultLeadDays: number;
-  materials: { materialName: string; unit: string; quantityPerUnit: number }[];
+  materials: { materialName: string; unit: string; quantityPerUnit: number; demoAvailableQty: number }[];
   departmentRates: DepartmentRateOverride[];
 };
 type Colour = { id: string; name: string };
@@ -50,6 +53,7 @@ export function NewOrderForm({
   const [quantity, setQuantity] = useState(100);
   const [colourId, setColourId] = useState(colours[0]?.id ?? "");
   const [targetDays, setTargetDays] = useState(products[0]?.defaultLeadDays ?? 14);
+  const [priority, setPriority] = useState<Priority>("NORMAL");
 
   function handleProductChange(id: string) {
     setProductId(id);
@@ -82,6 +86,11 @@ export function NewOrderForm({
     [product, quantity]
   );
 
+  const materialRequirements = useMemo(
+    () => (product ? computeMaterialRequirements(product.materials, quantity) : []),
+    [product, quantity]
+  );
+
   function handleRelease() {
     if (!product || !colour) return;
     setError(null);
@@ -93,6 +102,7 @@ export function NewOrderForm({
           colourId: colour.id,
           targetDays,
           ocNumber,
+          priority,
         });
         router.push(`/orders/${id}`);
       } catch {
@@ -165,6 +175,22 @@ export function NewOrderForm({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="priority">Priority</Label>
+            <Select value={priority} onValueChange={(v) => v && setPriority(v as Priority)}>
+              <SelectTrigger id="priority" className="w-full">
+                <SelectValue>{() => priority}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="targetDays">Target timeline (days)</Label>
             <Input
               id="targetDays"
@@ -190,8 +216,12 @@ export function NewOrderForm({
         </CardContent>
       </Card>
 
-      <div>
-        <CapacityPanel result={result} targetDays={targetDays} materials={materials} />
+      <div className="space-y-6">
+        <CapacityPanel result={result} targetDays={targetDays} materials={materials} constants={constants} />
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">Material requirements</h3>
+          <MaterialsRequirementsTable lines={materialRequirements} />
+        </div>
       </div>
     </div>
   );

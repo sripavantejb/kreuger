@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   FileText,
   ClipboardList,
+  ClipboardCheck,
+  ListChecks,
   BellRing,
   Database,
   BarChart3,
@@ -15,8 +17,10 @@ import {
 
 const links = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/quotations", label: "Purchase orders", icon: FileText },
+  { href: "/quotations", label: "Quotations", icon: FileText },
+  { href: "/sales-orders", label: "Sales orders", icon: ClipboardCheck },
   { href: "/orders", label: "Orders", icon: ClipboardList },
+  { href: "/follow-up", label: "Follow-up", icon: ListChecks },
   { href: "/manpower", label: "Manpower", icon: Users2 },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/alerts", label: "Alerts", icon: BellRing },

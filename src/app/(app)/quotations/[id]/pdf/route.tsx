@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
   ]);
   if (!quotation) {
-    return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
+    return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
   }
   const image = await prisma.productColourImage.findFirst({
     where: { productId: quotation.productId, colourId: quotation.colourId },

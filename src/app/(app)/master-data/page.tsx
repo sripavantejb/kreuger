@@ -70,6 +70,8 @@ export default async function MasterDataPage() {
                 procurementHeadEmail: settings.procurementHeadEmail,
                 dispatchHeadName: settings.dispatchHeadName,
                 dispatchHeadEmail: settings.dispatchHeadEmail,
+                salesCoordinatorName: settings.salesCoordinatorName,
+                salesCoordinatorEmail: settings.salesCoordinatorEmail,
               }}
               readOnly={!isAdmin}
             />

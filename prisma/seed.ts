@@ -3,7 +3,7 @@ import { prisma } from "../src/lib/prisma";
 import { planCapacity } from "../src/lib/planning";
 import { computeUnitRate } from "../src/lib/pricing";
 import { buildStageList, PROCUREMENT_STAGE, FINISHED_GOODS_STAGE } from "../src/lib/stages";
-import { buildDeadlineBreachAlert, buildStageEntryAlert, getContactDirectory } from "../src/lib/alerts";
+import { buildDeadlineBreachAlert, buildStageEntryAlert, buildSalesOrderConfirmedAlert, getContactDirectory } from "../src/lib/alerts";
 import { hashPassword } from "../src/lib/auth";
 import { planManpower, type ManpowerDepartment } from "../src/lib/manpower";
 import { workingDaysBetween } from "../src/lib/working-days";
@@ -20,6 +20,7 @@ async function reset() {
   await prisma.ocStageEvent.deleteMany();
   await prisma.ocDepartmentPlan.deleteMany();
   await prisma.orderConfirmation.deleteMany();
+  await prisma.salesOrder.deleteMany();
   await prisma.quotation.deleteMany();
   await prisma.pricingSlab.deleteMany();
   await prisma.productMaterial.deleteMany();
@@ -48,6 +49,8 @@ async function main() {
       procurementHeadEmail: "procurement.head@kreuger.local",
       dispatchHeadName: "Dispatch Head",
       dispatchHeadEmail: "dispatch.head@kreuger.local",
+      salesCoordinatorName: "Sales Coordinator",
+      salesCoordinatorEmail: "sales.coordinator@kreuger.local",
     },
   });
 
@@ -169,16 +172,40 @@ async function main() {
 
   await Promise.all([
     prisma.productMaterial.create({
-      data: { productId: mastro.id, materialName: "Plastics", unit: "kg", quantityPerUnit: 1.0 },
+      data: {
+        productId: mastro.id,
+        materialName: "Plastics",
+        unit: "kg",
+        quantityPerUnit: 1.0,
+        demoAvailableQty: 100, // demo: READY for 100 units
+      },
     }),
     prisma.productMaterial.create({
-      data: { productId: mastro.id, materialName: "Chrome", unit: "kg", quantityPerUnit: 1.5 },
+      data: {
+        productId: mastro.id,
+        materialName: "Chrome",
+        unit: "kg",
+        quantityPerUnit: 1.5,
+        demoAvailableQty: 80, // demo: SHORTAGE for 100 units (needs 150)
+      },
     }),
     prisma.productMaterial.create({
-      data: { productId: nova.id, materialName: "Aluminium", unit: "kg", quantityPerUnit: 2.2 },
+      data: {
+        productId: nova.id,
+        materialName: "Aluminium",
+        unit: "kg",
+        quantityPerUnit: 2.2,
+        demoAvailableQty: 500,
+      },
     }),
     prisma.productMaterial.create({
-      data: { productId: nova.id, materialName: "Fabric", unit: "m", quantityPerUnit: 1.8 },
+      data: {
+        productId: nova.id,
+        materialName: "Fabric",
+        unit: "m",
+        quantityPerUnit: 1.8,
+        demoAvailableQty: 200,
+      },
     }),
   ]);
 
@@ -194,30 +221,30 @@ async function main() {
     ...slabsData.map((s) => prisma.pricingSlab.create({ data: { productId: nova.id, ...s } })),
   ]);
 
-  // Three sample purchase orders (stored as Quotation)
+  // Sample customer quotations
   const partyDefaults = {
-    vendorName: "Maruthi Enterprises",
-    vendorAddress: "No. 12, Industrial Layout, Peenya, Bengaluru",
+    vendorName: "Acme Interiors Pvt Ltd",
+    vendorAddress: "42 MG Road, Bengaluru",
     vendorState: "Karnataka",
     vendorStateCode: "29",
-    vendorGstin: "29AABCM1234D1Z2",
-    shipToName: "Krueger International Furniture Systems Pvt.Ltd.",
-    shipToAddress: "Jigani55, Bommasandra-Jigani Link Road, BENGALURU-562106",
+    vendorGstin: "29AABCA1234D1Z2",
+    shipToName: "Acme Interiors Pvt Ltd",
+    shipToAddress: "42 MG Road, Bengaluru",
     shipToState: "Karnataka",
     shipToStateCode: "29",
-    shipToGstin: "29AABCK1234A1Z5",
-    contactPerson: "Plant Manager",
-    contactPhone: "+91-80-1234-5678",
-    contactEmail: "manager@kreuger.local",
-    buyerName: "Procurement",
+    shipToGstin: "29AABCA1234D1Z2",
+    contactPerson: "Priya Shah",
+    contactPhone: "+91-98-7654-3210",
+    contactEmail: "priya@acme.example",
+    buyerName: "Priya Shah",
     paymentTerms: "Advance 100%",
   };
 
   const q1Qty = 50;
   const q1Rate = computeUnitRate(mastro.baseRate, q1Qty, slabsData);
-  await prisma.quotation.create({
+  const q1 = await prisma.quotation.create({
     data: {
-      quotationNumber: "PO-2026-0001",
+      quotationNumber: "Q-2026-0001",
       productId: mastro.id,
       quantity: q1Qty,
       colourId: colourByName["Black"].id,
@@ -234,7 +261,7 @@ async function main() {
   const q2Rate = computeUnitRate(mastro.baseRate, q2Qty, slabsData);
   await prisma.quotation.create({
     data: {
-      quotationNumber: "PO-2026-0002",
+      quotationNumber: "Q-2026-0002",
       productId: mastro.id,
       quantity: q2Qty,
       colourId: colourByName["White"].id,
@@ -250,7 +277,7 @@ async function main() {
   const q3Rate = computeUnitRate(nova.baseRate, q3Qty, slabsData);
   await prisma.quotation.create({
     data: {
-      quotationNumber: "PO-2026-0003",
+      quotationNumber: "Q-2026-0003",
       productId: nova.id,
       quantity: q3Qty,
       colourId: colourByName["Blue"].id,
@@ -258,9 +285,36 @@ async function main() {
       lineTotal: q3Rate * q3Qty,
       createdAt: daysAgo(1),
       ...partyDefaults,
-      vendorRefNo: "ME/QT/2026/088",
+      vendorRefNo: "ENQ/2026/088",
       remarks: "Nova executive chairs — Blue",
       deliveryDate: daysAgo(-10),
+    },
+  });
+
+  // Sample sales order awaiting coordinator verification (demo workflow)
+  const demoSo = await prisma.salesOrder.create({
+    data: {
+      soNumber: "SO10001",
+      quotationId: q1.id,
+      productId: mastro.id,
+      quantity: 100,
+      colourId: colourByName["Black"].id,
+      priority: "NORMAL",
+      status: "pending_verification",
+      customerName: "Acme Interiors Pvt Ltd",
+      notes: "Demo SO for Stage-1 verification walkthrough",
+    },
+  });
+  await prisma.alert.create({
+    data: {
+      salesOrderId: demoSo.id,
+      ...buildSalesOrderConfirmedAlert({
+        soNumber: "SO10001",
+        productName: "Mastro",
+        quantity: 100,
+        colourName: "Black",
+        directory,
+      }),
     },
   });
 
@@ -305,6 +359,7 @@ async function main() {
       quantity: 100,
       colourId: colourByName["Black"].id,
       targetDays: 14,
+      priority: "NORMAL",
       plannedAt: daysAgo(3),
       currentStage: "Injection moulding",
       status: "in_progress",
@@ -355,6 +410,7 @@ async function main() {
       quantity: 250,
       colourId: colourByName["White"].id,
       targetDays: 25,
+      priority: "HIGH",
       plannedAt: daysAgo(5),
       currentStage: PROCUREMENT_STAGE,
       status: "in_progress",
@@ -408,6 +464,7 @@ async function main() {
       quantity: 50,
       colourId: colourByName["Red"].id,
       targetDays: 10,
+      priority: "URGENT",
       plannedAt: daysAgo(19),
       currentStage: FINISHED_GOODS_STAGE,
       status: "closed",

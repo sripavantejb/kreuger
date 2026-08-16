@@ -14,6 +14,7 @@ export type ContactDirectory = {
   procurement: Contact;
   dispatch: Contact;
   plantHead: Contact;
+  salesCoordinator: Contact;
   departments: { name: string; headName: string; headEmail: string }[];
 };
 
@@ -26,6 +27,10 @@ export async function getContactDirectory(): Promise<ContactDirectory> {
     procurement: { name: settings.procurementHeadName, email: settings.procurementHeadEmail },
     dispatch: { name: settings.dispatchHeadName, email: settings.dispatchHeadEmail },
     plantHead: { name: settings.plantHeadName, email: settings.plantHeadEmail },
+    salesCoordinator: {
+      name: settings.salesCoordinatorName,
+      email: settings.salesCoordinatorEmail,
+    },
     departments: departments.map((d) => ({ name: d.name, headName: d.headName, headEmail: d.headEmail })),
   };
 }
@@ -74,5 +79,57 @@ export function buildDeadlineBreachAlert(params: {
     body: `Order ${ocNumber} (${productName}, ${quantity} units) has exceeded its ${stageName} deadline of ${deadlineDays.toFixed(
       1
     )} day(s). Elapsed: ${elapsedDays.toFixed(1)} day(s). Please expedite and advise on a revised timeline.`,
+  };
+}
+
+export function buildSalesOrderConfirmedAlert(params: {
+  soNumber: string;
+  productName: string;
+  quantity: number;
+  colourName: string;
+  directory: ContactDirectory;
+}) {
+  const { soNumber, productName, quantity, colourName, directory } = params;
+  return {
+    type: "sales_order_confirmed" as const,
+    recipient: directory.salesCoordinator.name,
+    recipientEmail: directory.salesCoordinator.email,
+    subject: `${soNumber} confirmed — verification required`,
+    body: `Sales order ${soNumber} (${productName}, ${quantity} units, ${colourName}) has been confirmed. Please verify item code, drawing, BOM and order details before release to production.`,
+  };
+}
+
+export function buildFollowUpReminderAlert(params: {
+  ocNumber: string;
+  productName: string;
+  quantity: number;
+  stageName: string;
+  directory: ContactDirectory;
+}) {
+  const { ocNumber, productName, quantity, stageName, directory } = params;
+  const contact = contactForStage(stageName, directory);
+  return {
+    type: "follow_up_reminder" as const,
+    recipient: contact.name,
+    recipientEmail: contact.email,
+    subject: `Reminder: ${ocNumber} still in ${stageName}`,
+    body: `Follow-up reminder for ${ocNumber} (${productName}, ${quantity} units). Current stage: ${stageName}. Please update progress or advance when ready.`,
+  };
+}
+
+export function buildEscalationAlert(params: {
+  ocNumber: string;
+  productName: string;
+  quantity: number;
+  stageName: string;
+  directory: ContactDirectory;
+}) {
+  const { ocNumber, productName, quantity, stageName, directory } = params;
+  return {
+    type: "escalation" as const,
+    recipient: directory.plantHead.name,
+    recipientEmail: directory.plantHead.email,
+    subject: `Escalation: ${ocNumber} — ${stageName}`,
+    body: `Escalation raised for ${ocNumber} (${productName}, ${quantity} units) while in ${stageName}. Please review and advise.`,
   };
 }

@@ -7,20 +7,23 @@ import { planCapacity } from "./planning";
 import { applyProductDepartmentRates } from "./product-department-rates";
 import { buildStageList, nextStage, PROCUREMENT_STAGE, FINISHED_GOODS_STAGE } from "./stages";
 import { buildDeadlineBreachAlert, buildStageEntryAlert, getContactDirectory } from "./alerts";
-import { requireRole } from "./auth";
+import { requireRole, getSession } from "./auth";
 import { maybeSendAlertEmail } from "./email";
 import { saveManpowerPlan } from "./actions-manpower";
+import { isPriority, type Priority } from "./priority";
 
 async function nextQuotationNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const count = await prisma.quotation.count();
-  return `PO-${year}-${String(count + 1).padStart(4, "0")}`;
+  return `Q-${year}-${String(count + 1).padStart(4, "0")}`;
 }
 
 export type CreateQuotationInput = {
   productId: string;
   quantity: number;
   colourId: string;
+  /** Manager-approved unit rate. Defaults to slab suggestion when omitted. */
+  unitRate?: number;
   location?: string;
   revisesQuotationNumber?: string;
   vendorName?: string;
@@ -50,7 +53,11 @@ export async function createQuotation(input: CreateQuotationInput) {
     where: { id: input.productId },
     include: { pricingSlabs: true },
   });
-  const unitRate = computeUnitRate(product.baseRate, input.quantity, product.pricingSlabs);
+  const suggested = computeUnitRate(product.baseRate, input.quantity, product.pricingSlabs);
+  const unitRate =
+    typeof input.unitRate === "number" && Number.isFinite(input.unitRate) && input.unitRate > 0
+      ? input.unitRate
+      : suggested;
   const lineTotal = unitRate * input.quantity;
   const quotationNumber = await nextQuotationNumber();
 
@@ -108,8 +115,20 @@ export async function createOrder(input: {
   colourId: string;
   targetDays: number;
   ocNumber?: string;
+  priority?: Priority;
+  salesOrderId?: string;
 }) {
   await requireRole("MANAGER");
+  const session = await getSession();
+  const actor = session?.name ?? "";
+
+  if (input.salesOrderId) {
+    const so = await prisma.salesOrder.findUniqueOrThrow({ where: { id: input.salesOrderId } });
+    if (so.status === "rejected") throw new Error("Cannot release a rejected sales order.");
+    const existing = await prisma.orderConfirmation.findFirst({ where: { salesOrderId: input.salesOrderId } });
+    if (existing) throw new Error("This sales order already has an OC.");
+  }
+
   const [product, colour, departments, settings, directory, departmentRates] = await Promise.all([
     prisma.product.findUniqueOrThrow({ where: { id: input.productId } }),
     prisma.colour.findUniqueOrThrow({ where: { id: input.colourId } }),
@@ -131,6 +150,7 @@ export async function createOrder(input: {
 
   const ocNumber = input.ocNumber?.trim() || (await nextOcNumber());
   const now = new Date();
+  const priority = input.priority && isPriority(input.priority) ? input.priority : "NORMAL";
 
   const oc = await prisma.orderConfirmation.create({
     data: {
@@ -139,6 +159,8 @@ export async function createOrder(input: {
       quantity: input.quantity,
       colourId: input.colourId,
       targetDays: input.targetDays,
+      priority,
+      salesOrderId: input.salesOrderId,
       plannedAt: now,
       currentStage: PROCUREMENT_STAGE,
       status: "in_progress",
@@ -166,6 +188,7 @@ export async function createOrder(input: {
       enteredAt: now,
       deadlineDays: settings.procurementDays,
       breached: false,
+      updatedBy: actor,
     },
   });
 
@@ -180,10 +203,6 @@ export async function createOrder(input: {
   const alert = await prisma.alert.create({ data: { ocId: oc.id, ...alertData } });
   await maybeSendAlertEmail(alert);
 
-  // Manpower-efficiency hook: seed a default plan so the OC appears in
-  // /manpower with a computed result on first visit, no retyping needed.
-  // Deliberately thin and non-fatal — a hiccup here must never block OC
-  // creation itself.
   try {
     await saveManpowerPlan({
       ocId: oc.id,
@@ -197,6 +216,7 @@ export async function createOrder(input: {
   revalidatePath("/orders");
   revalidatePath("/");
   revalidatePath("/manpower");
+  revalidatePath("/follow-up");
   return oc.id;
 }
 
@@ -212,6 +232,8 @@ export async function cancelOrder(ocId: string) {
 
 export async function advanceStage(ocId: string) {
   await requireRole("MANAGER");
+  const session = await getSession();
+  const actor = session?.name ?? "";
   const [oc, departments, directory] = await Promise.all([
     prisma.orderConfirmation.findUniqueOrThrow({
       where: { id: ocId },
@@ -242,7 +264,7 @@ export async function advanceStage(ocId: string) {
 
   await prisma.ocStageEvent.update({
     where: { id: openEvent.id },
-    data: { exitedAt: now, durationHours: elapsedHours, breached },
+    data: { exitedAt: now, durationHours: elapsedHours, breached, updatedBy: actor || openEvent.updatedBy },
   });
 
   if (breached) {
@@ -271,6 +293,7 @@ export async function advanceStage(ocId: string) {
       enteredAt: now,
       deadlineDays: nextDeadline,
       breached: false,
+      updatedBy: actor,
     },
   });
 
@@ -296,6 +319,7 @@ export async function advanceStage(ocId: string) {
   revalidatePath(`/orders/${ocId}`);
   revalidatePath("/orders");
   revalidatePath("/alerts");
+  revalidatePath("/follow-up");
   revalidatePath("/");
 }
 
@@ -340,11 +364,15 @@ export async function updatePricingSlab(input: {
 export async function updateMaterial(input: {
   id: string;
   quantityPerUnit: number;
+  demoAvailableQty?: number;
 }) {
   await requireRole("ADMIN");
   await prisma.productMaterial.update({
     where: { id: input.id },
-    data: { quantityPerUnit: input.quantityPerUnit },
+    data: {
+      quantityPerUnit: input.quantityPerUnit,
+      ...(typeof input.demoAvailableQty === "number" ? { demoAvailableQty: input.demoAvailableQty } : {}),
+    },
   });
   revalidatePath("/master-data");
 }

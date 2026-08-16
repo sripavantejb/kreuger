@@ -55,92 +55,87 @@ export default async function QuotationsPage({
     orderBy,
   });
 
-  const csvRows = quotations.map((q) => ({
-    "PO #": q.quotationNumber,
-    Date: formatDate(q.createdAt),
-    Product: q.product.name,
-    Colour: q.colour.name,
-    Quantity: q.quantity,
-    "Unit rate": q.unitRate,
-    "Line total": q.lineTotal,
-    Vendor: q.vendorName,
+  const csvRows = quotations.map((row) => ({
+    "Quotation #": row.quotationNumber,
+    Date: formatDate(row.createdAt),
+    Product: row.product.name,
+    Colour: row.colour.name,
+    Quantity: row.quantity,
+    "Unit rate": row.unitRate,
+    "Line total": row.lineTotal,
+    Customer: row.vendorName,
   }));
 
   return (
     <div>
       <PageHeader
-        title="Purchase orders"
-        description="Commercial POs with vendor, ship-to, HSN and GST — export as PDF."
+        title="Quotations"
+        description="Customer quotations from product, quantity and colour — suggested price, preview and PDF."
         help={{
           content: (
             <>
-              <p>A purchase order prices a product and quantity using its base rate and quantity pricing slabs from Master Data.</p>
+              <p>A quotation prices a product and quantity using its base rate and quantity pricing slabs from Master Data. You can edit the suggested unit rate before saving.</p>
               <ul>
-                <li><strong>Revise</strong> — create a new PO number that supersedes an earlier one.</li>
-                <li><strong>PDF export</strong> — download the Maruthi-style commercial layout.</li>
+                <li><strong>Revise</strong> — create a new quotation number that references an earlier one.</li>
+                <li><strong>Confirm sales order</strong> — after customer acceptance, open the sales-order verification workflow.</li>
               </ul>
-              <p>A PO on its own doesn&apos;t reserve capacity — that only happens once it becomes an order confirmation.</p>
             </>
           ),
         }}
         actions={
           canWrite && (
             <Button render={<Link href="/quotations/new" />} nativeButton={false}>
-              <Plus /> New purchase order
+              <Plus /> New quotation
             </Button>
           )
         }
       />
       <PageBody>
-        <ListToolbar searchPlaceholder="Search purchase orders…" sortOptions={SORT_OPTIONS}>
-          <ExportCsvButton filename="purchase-orders.csv" rows={csvRows} />
+        <ListToolbar searchPlaceholder="Search quotations…" sortOptions={SORT_OPTIONS}>
+          <ExportCsvButton filename="quotations.csv" rows={csvRows} />
         </ListToolbar>
         <Card className="py-0">
           <CardContent className="p-0">
             {quotations.length === 0 ? (
               <EmptyState
-                title="No purchase orders match"
-                description="Create a purchase order to price a product and quantity."
                 icon={<FileText className="size-5" />}
+                title="No quotations yet"
+                description="Create a quotation for a product, quantity and colour."
+                action={
+                  canWrite ? (
+                    <Button render={<Link href="/quotations/new" />} nativeButton={false}>
+                      <Plus /> New quotation
+                    </Button>
+                  ) : undefined
+                }
               />
             ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>PO #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Colour</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead className="text-right">Unit rate</TableHead>
-                  <TableHead className="text-right">Line total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {quotations.map((q) => (
-                  <ClickableTableRow
-                    key={q.id}
-                    href={`/quotations/${q.id}`}
-                    label={`Open purchase order ${q.quotationNumber}`}
-                  >
-                    <TableCell className="relative z-0 font-semibold group-hover/row:text-primary">
-                      {q.quotationNumber}
-                      {q.revisesQuotationNumber && (
-                        <div className="text-xs font-normal text-muted-foreground">
-                          revises {q.revisesQuotationNumber}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="relative z-0 text-muted-foreground">{formatDate(q.createdAt)}</TableCell>
-                    <TableCell className="relative z-0">{q.product.name}</TableCell>
-                    <TableCell className="relative z-0 text-muted-foreground">{q.colour.name}</TableCell>
-                    <TableCell className="relative z-0 text-right tabular-nums font-medium">{formatNumber(q.quantity)}</TableCell>
-                    <TableCell className="relative z-0 text-right tabular-nums text-muted-foreground">{formatINR(q.unitRate)}</TableCell>
-                    <TableCell className="relative z-0 text-right tabular-nums font-semibold">{formatINR(q.lineTotal)}</TableCell>
-                  </ClickableTableRow>
-                ))}
-              </TableBody>
-            </Table>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Quotation</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Colour</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Unit rate</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quotations.map((row) => (
+                    <ClickableTableRow key={row.id} href={`/quotations/${row.id}`} label={`Open ${row.quotationNumber}`}>
+                      <TableCell className="font-medium">{row.quotationNumber}</TableCell>
+                      <TableCell>{formatDate(row.createdAt)}</TableCell>
+                      <TableCell>{row.product.name}</TableCell>
+                      <TableCell>{row.colour.name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatNumber(row.quantity)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(row.unitRate)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(row.lineTotal)}</TableCell>
+                    </ClickableTableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>

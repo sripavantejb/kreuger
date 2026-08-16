@@ -48,17 +48,17 @@ export default async function ReportsPage() {
     <div>
       <PageHeader
         title="Reports"
-        description="Throughput, on-time performance and where orders most often get stuck."
+        description="On-time performance, stage duration, and bottleneck departments — use OC delay history to see why an order was late."
         help={{
           content: (
             <>
               <p>These charts are computed live from your order history — nothing is pre-canned.</p>
               <ul>
-                <li><strong>Stage duration</strong> — average time orders spend in each department.</li>
-                <li><strong>On-time performance</strong> — share of completed orders finished at or before their target date.</li>
-                <li><strong>Bottleneck frequency</strong> — which department most often blocks or delays a capacity plan.</li>
+                <li><strong>Stage duration</strong> — average planned vs actual time per stage.</li>
+                <li><strong>On-time performance</strong> — share of stages finished within deadline.</li>
+                <li><strong>Bottleneck frequency</strong> — which department most often breaches.</li>
+                <li><strong>OC table</strong> — breached stage count per OC; open the OC for full delay history.</li>
               </ul>
-              <p>Use Export CSV to take the summary figures into a spreadsheet.</p>
             </>
           ),
         }}

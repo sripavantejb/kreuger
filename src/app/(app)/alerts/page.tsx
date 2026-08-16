@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
 const TYPE_OPTIONS = [
   { value: "stage_entry", label: "Stage entry" },
   { value: "deadline_breach", label: "Deadline breach" },
+  { value: "sales_order_confirmed", label: "Sales order confirmed" },
+  { value: "follow_up_reminder", label: "Follow-up reminder" },
+  { value: "escalation", label: "Escalation" },
 ];
 
 export default async function AlertsPage({

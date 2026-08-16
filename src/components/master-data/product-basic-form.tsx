@@ -105,7 +105,7 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
           placeholder="e.g. 9401"
           onChange={(e) => setHsnCode(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">Shown on Purchase Order PDFs.</p>
+        <p className="text-xs text-muted-foreground">Shown on Quotation PDFs.</p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="description">Specifications</Label>
