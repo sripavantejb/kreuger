@@ -53,6 +53,19 @@ export default async function ManpowerListPage({
       <PageHeader
         title="Manpower efficiency"
         description="Pick any existing order confirmation to see department headcount, hours and utilisation for a date range."
+        help={{
+          content: (
+            <>
+              <p>For a chosen date range, this converts a quantity into the number of working days available (skipping weekly offs and holidays), then computes how many workers each department needs to hit that window.</p>
+              <ul>
+                <li><strong>Achievable</strong> — shows workers, working hours, man-hours and utilisation per department.</li>
+                <li><strong>Blocked</strong> — names the department(s) whose daily ceiling can&apos;t be reached and the earliest date that is achievable.</li>
+                <li><strong>What-if override</strong> — preview a different product, quantity or colour without changing the saved plan.</li>
+              </ul>
+              <p>Weekly off days and holidays are set in Master Data.</p>
+            </>
+          ),
+        }}
       />
       <div className="px-8 py-6">
         <ListToolbar

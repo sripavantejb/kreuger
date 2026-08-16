@@ -55,6 +55,7 @@ model Product {
   name      String
   code      String   @unique
   baseRate  Float
+  defaultLeadDays Int @default(14) // pre-fills target days / plan range for new OCs of this product
 
   materials       ProductMaterial[]
   departmentRates ProductDepartmentRate[]

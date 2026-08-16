@@ -16,12 +16,12 @@ export default async function ManpowerDetailPage({ params }: { params: Promise<{
     prisma.orderConfirmation.findUnique({
       where: { id: ocId },
       include: {
-        product: { include: { materials: true } },
+        product: { include: { materials: true, departmentRates: true } },
         colour: true,
         manpowerPlan: true,
       },
     }),
-    prisma.product.findMany({ include: { materials: true } }),
+    prisma.product.findMany({ include: { materials: true, departmentRates: true } }),
     prisma.colour.findMany(),
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
@@ -46,6 +46,18 @@ export default async function ManpowerDetailPage({ params }: { params: Promise<{
       <PageHeader
         title={oc.ocNumber}
         description={`${oc.product.name} · ${oc.colour.name} · ${formatNumber(oc.quantity)} units`}
+        help={{
+          content: (
+            <>
+              <p>Pick a start and end date for this order&apos;s production run — the calculator converts that range into working days (skipping weekly offs and holidays) and computes the workers, hours and utilisation each department needs.</p>
+              <ul>
+                <li><strong>Blocked</strong> — a department can&apos;t keep up in the chosen window; use &quot;earliest achievable date&quot; to jump to a range that works.</li>
+                <li><strong>What-if override</strong> — try a different product, quantity or colour without touching the saved plan.</li>
+                <li><strong>Save plan</strong> — persists the date range against this order (only available with the real product/quantity, not a what-if).</li>
+              </ul>
+            </>
+          ),
+        }}
       />
       <ManpowerDetailClient
         oc={{

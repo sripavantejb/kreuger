@@ -18,13 +18,14 @@ import { createProduct } from "@/lib/actions-master-data";
 import { formatINR } from "@/lib/format";
 import { Plus, ChevronRight } from "lucide-react";
 
-type Product = { id: string; name: string; code: string; baseRate: number };
+type Product = { id: string; name: string; code: string; baseRate: number; defaultLeadDays: number };
 
 export function ProductsTable({ products, readOnly = false }: { products: Product[]; readOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [baseRate, setBaseRate] = useState(1000);
+  const [defaultLeadDays, setDefaultLeadDays] = useState(14);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -32,12 +33,13 @@ export function ProductsTable({ products, readOnly = false }: { products: Produc
     setError(null);
     startTransition(async () => {
       try {
-        await createProduct({ name, code, baseRate });
+        await createProduct({ name, code, baseRate, defaultLeadDays });
         toast.success(`${name} added`);
         setOpen(false);
         setName("");
         setCode("");
         setBaseRate(1000);
+        setDefaultLeadDays(14);
       } catch {
         setError("Could not create the product. Check the code is unique.");
       }
@@ -53,6 +55,7 @@ export function ProductsTable({ products, readOnly = false }: { products: Produc
               <TableHead>Product</TableHead>
               <TableHead>Code</TableHead>
               <TableHead className="text-right">Base rate</TableHead>
+              <TableHead className="text-right">Default lead days</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -62,6 +65,7 @@ export function ProductsTable({ products, readOnly = false }: { products: Produc
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell>{p.code}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatINR(p.baseRate)}</TableCell>
+                <TableCell className="text-right tabular-nums">{p.defaultLeadDays} days</TableCell>
                 <TableCell className="text-right">
                   <Button
                     size="sm"
@@ -106,6 +110,19 @@ export function ProductsTable({ products, readOnly = false }: { products: Produc
                 value={baseRate}
                 onChange={(e) => setBaseRate(Number(e.target.value) || 0)}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="p-lead">Default lead days</Label>
+              <Input
+                id="p-lead"
+                type="number"
+                min={1}
+                value={defaultLeadDays}
+                onChange={(e) => setDefaultLeadDays(Math.max(1, Number(e.target.value) || 1))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Pre-fills the target timeline when someone creates a new order for this product.
+              </p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

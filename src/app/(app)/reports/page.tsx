@@ -48,6 +48,19 @@ export default async function ReportsPage() {
       <PageHeader
         title="Reports"
         description="Throughput, on-time performance and where orders most often get stuck."
+        help={{
+          content: (
+            <>
+              <p>These charts are computed live from your order history — nothing is pre-canned.</p>
+              <ul>
+                <li><strong>Stage duration</strong> — average time orders spend in each department.</li>
+                <li><strong>On-time performance</strong> — share of completed orders finished at or before their target date.</li>
+                <li><strong>Bottleneck frequency</strong> — which department most often blocks or delays a capacity plan.</li>
+              </ul>
+              <p>Use Export CSV to take the summary figures into a spreadsheet.</p>
+            </>
+          ),
+        }}
         actions={<ExportCsvButton filename="report-summary.csv" rows={csvRows} />}
       />
       <div className="space-y-6 px-8 py-6">

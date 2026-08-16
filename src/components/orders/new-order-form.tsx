@@ -15,13 +15,16 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { CapacityPanel } from "./capacity-panel";
 import { planCapacity, type PlanningDepartment } from "@/lib/planning";
+import { applyProductDepartmentRates, type DepartmentRateOverride } from "@/lib/product-department-rates";
 import { createOrder } from "@/lib/actions";
 
 type ProductData = {
   id: string;
   name: string;
   code: string;
+  defaultLeadDays: number;
   materials: { materialName: string; unit: string; quantityPerUnit: number }[];
+  departmentRates: DepartmentRateOverride[];
 };
 type Colour = { id: string; name: string };
 
@@ -46,14 +49,25 @@ export function NewOrderForm({
   const [productId, setProductId] = useState(products[0]?.id ?? "");
   const [quantity, setQuantity] = useState(100);
   const [colourId, setColourId] = useState(colours[0]?.id ?? "");
-  const [targetDays, setTargetDays] = useState(14);
+  const [targetDays, setTargetDays] = useState(products[0]?.defaultLeadDays ?? 14);
+
+  function handleProductChange(id: string) {
+    setProductId(id);
+    const p = products.find((p) => p.id === id);
+    if (p) setTargetDays(p.defaultLeadDays);
+  }
 
   const product = products.find((p) => p.id === productId) ?? products[0];
   const colour = colours.find((c) => c.id === colourId) ?? colours[0];
 
+  const effectiveDepartments = useMemo(
+    () => applyProductDepartmentRates(departments, product?.departmentRates ?? []),
+    [departments, product]
+  );
+
   const result = useMemo(
-    () => planCapacity(quantity, targetDays, departments, constants),
-    [quantity, targetDays, departments, constants]
+    () => planCapacity(quantity, targetDays, effectiveDepartments, constants),
+    [quantity, targetDays, effectiveDepartments, constants]
   );
 
   const materials = useMemo(
@@ -102,7 +116,7 @@ export function NewOrderForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="product">Product</Label>
-            <Select value={productId} onValueChange={(v) => v && setProductId(v)}>
+            <Select value={productId} onValueChange={(v) => v && handleProductChange(v)}>
               <SelectTrigger id="product" className="w-full">
                 <SelectValue>
                   {(value: string) => {
@@ -159,6 +173,9 @@ export function NewOrderForm({
               value={targetDays}
               onChange={(e) => setTargetDays(Math.max(1, Number(e.target.value) || 1))}
             />
+            <p className="text-xs text-muted-foreground">
+              Default for {product.name} is {product.defaultLeadDays} days — set in Master Data.
+            </p>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

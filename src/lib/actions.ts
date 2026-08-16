@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 import { computeUnitRate } from "./pricing";
 import { planCapacity } from "./planning";
+import { applyProductDepartmentRates } from "./product-department-rates";
 import { buildStageList, nextStage, PROCUREMENT_STAGE, FINISHED_GOODS_STAGE } from "./stages";
 import { buildDeadlineBreachAlert, buildStageEntryAlert, getContactDirectory } from "./alerts";
 import { requireRole } from "./auth";
@@ -67,19 +68,21 @@ export async function createOrder(input: {
   ocNumber?: string;
 }) {
   await requireRole("MANAGER");
-  const [product, colour, departments, settings, directory] = await Promise.all([
+  const [product, colour, departments, settings, directory, departmentRates] = await Promise.all([
     prisma.product.findUniqueOrThrow({ where: { id: input.productId } }),
     prisma.colour.findUniqueOrThrow({ where: { id: input.colourId } }),
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
     getContactDirectory(),
+    prisma.productDepartmentRate.findMany({ where: { productId: input.productId } }),
   ]);
   const constants = {
     procurementDays: settings.procurementDays,
     rampDays: settings.rampDays,
     shiftHours: settings.shiftHours,
   };
-  const result = planCapacity(input.quantity, input.targetDays, departments, constants);
+  const effectiveDepartments = applyProductDepartmentRates(departments, departmentRates);
+  const result = planCapacity(input.quantity, input.targetDays, effectiveDepartments, constants);
   if (result.status !== "ok") {
     throw new Error("Cannot release an OC with a blocked plan. Adjust the target timeline first.");
   }

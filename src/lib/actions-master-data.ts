@@ -14,15 +14,22 @@ const DEFAULT_SLABS = [
   { minQuantity: 500, maxQuantity: null, discountPercent: 20 },
 ];
 
-export async function createProduct(input: { name: string; code: string; baseRate: number }) {
+export async function createProduct(input: {
+  name: string;
+  code: string;
+  baseRate: number;
+  defaultLeadDays: number;
+}) {
   await requireRole("ADMIN");
-  const [colours, departments] = await Promise.all([
-    prisma.colour.findMany(),
-    prisma.department.findMany(),
-  ]);
+  const colours = await prisma.colour.findMany();
 
   const product = await prisma.product.create({
-    data: { name: input.name, code: input.code.toUpperCase(), baseRate: input.baseRate },
+    data: {
+      name: input.name,
+      code: input.code.toUpperCase(),
+      baseRate: input.baseRate,
+      defaultLeadDays: input.defaultLeadDays,
+    },
   });
 
   await Promise.all([
@@ -33,17 +40,27 @@ export async function createProduct(input: { name: string; code: string; baseRat
       })
     ),
   ]);
-  void departments;
 
   revalidatePath("/master-data");
   return product.id;
 }
 
-export async function updateProduct(input: { id: string; name: string; code: string; baseRate: number }) {
+export async function updateProduct(input: {
+  id: string;
+  name: string;
+  code: string;
+  baseRate: number;
+  defaultLeadDays: number;
+}) {
   await requireRole("ADMIN");
   await prisma.product.update({
     where: { id: input.id },
-    data: { name: input.name, code: input.code.toUpperCase(), baseRate: input.baseRate },
+    data: {
+      name: input.name,
+      code: input.code.toUpperCase(),
+      baseRate: input.baseRate,
+      defaultLeadDays: input.defaultLeadDays,
+    },
   });
   revalidatePath("/master-data");
   revalidatePath("/quotations");
@@ -66,6 +83,45 @@ export async function deleteProduct(id: string) {
     prisma.product.delete({ where: { id } }),
   ]);
   revalidatePath("/master-data");
+}
+
+// ---- Per-product department overrides --------------------------------
+// Wired into planning via src/lib/product-department-rates.ts, applied in
+// createOrder, saveManpowerPlan and the three client-side live-recompute
+// forms — see the callers of applyProductDepartmentRates.
+
+export async function setProductDepartmentRate(input: {
+  productId: string;
+  departmentId: string;
+  unitsPerWorkerPerDay: number;
+  maxUnitsPerDay: number;
+}) {
+  await requireRole("ADMIN");
+  await prisma.productDepartmentRate.upsert({
+    where: { productId_departmentId: { productId: input.productId, departmentId: input.departmentId } },
+    create: input,
+    update: {
+      unitsPerWorkerPerDay: input.unitsPerWorkerPerDay,
+      maxUnitsPerDay: input.maxUnitsPerDay,
+    },
+  });
+  revalidatePath("/master-data");
+  revalidatePath("/orders");
+  revalidatePath("/manpower");
+}
+
+export async function clearProductDepartmentRate(input: { productId: string; departmentId: string }) {
+  await requireRole("ADMIN");
+  await prisma.productDepartmentRate
+    .delete({
+      where: { productId_departmentId: { productId: input.productId, departmentId: input.departmentId } },
+    })
+    .catch(() => {
+      // Already using the default — nothing to clear.
+    });
+  revalidatePath("/master-data");
+  revalidatePath("/orders");
+  revalidatePath("/manpower");
 }
 
 export async function addPricingSlabRow(productId: string) {

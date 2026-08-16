@@ -26,6 +26,14 @@ export default async function NewQuotationPage({
       <PageHeader
         title={prefill.revises ? `Revise ${prefill.revises}` : "New quotation"}
         description="Pricing updates live as you change quantity."
+        help={{
+          content: (
+            <>
+              <p>Pick a product, colour and quantity — the unit rate updates live from that product&apos;s base rate and the quantity discount slab it falls into, both set in Master Data.</p>
+              <p>Saving creates a quotation number you can export as a PDF. It doesn&apos;t reserve production capacity — that happens when you create an order confirmation.</p>
+            </>
+          ),
+        }}
       />
       <NewQuotationForm
         products={products}

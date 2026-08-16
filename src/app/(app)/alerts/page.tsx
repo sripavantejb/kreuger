@@ -58,6 +58,18 @@ export default async function AlertsPage({
       <PageHeader
         title="Alerts"
         description="Every stage entry and deadline breach, exactly as it would land in an inbox. No email is actually sent — see BUILD_SPEC.md § Email."
+        help={{
+          content: (
+            <>
+              <p>This is a log of every notification the system generated, shown exactly as an email would read.</p>
+              <ul>
+                <li><strong>Stage entry alerts</strong> — sent to a department head when an order enters their stage.</li>
+                <li><strong>Deadline breach alerts</strong> — sent when an order is still in production past its target date.</li>
+              </ul>
+              <p>Recipients are configured in Master Data → Recipients. Real email delivery is optional and off by default.</p>
+            </>
+          ),
+        }}
       />
       <div className="px-8 py-6 max-w-3xl">
         <ListToolbar searchPlaceholder="Search alerts…" filterOptions={TYPE_OPTIONS} filterLabel="All types">

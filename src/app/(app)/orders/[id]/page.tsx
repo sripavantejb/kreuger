@@ -49,6 +49,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <PageHeader
         title={oc.ocNumber}
         description={`${oc.product.name} · ${oc.colour.name} · ${formatNumber(oc.quantity)} units · target ${oc.targetDays} days`}
+        help={{
+          content: (
+            <>
+              <p>This is the full record for one order confirmation, from release to Finished Goods.</p>
+              <ul>
+                <li><strong>Capacity plan</strong> — the department-by-department worker count computed at release time from the target timeline.</li>
+                <li><strong>Stage tracker</strong> — advance the order to the next department as production progresses; each move is timestamped and can fire a stage-entry alert.</li>
+                <li><strong>Delay breakdown</strong> — if the order is running late, shows which stage is behind and by how much.</li>
+              </ul>
+              <p>Edit or cancel an order from the actions above if it needs correcting.</p>
+            </>
+          ),
+        }}
         actions={
           <div className="flex items-center gap-2">
             <Badge

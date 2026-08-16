@@ -32,6 +32,14 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       <PageHeader
         title={quotation.quotationNumber}
         description="Quotation preview — layout matches the exported PDF."
+        help={{
+          content: (
+            <>
+              <p>This is exactly what the exported PDF looks like — the unit rate already reflects the quantity discount slab from Master Data.</p>
+              <p>From here you can revise (create a new quotation number superseding this one), duplicate (start a fresh quotation pre-filled from this), or export the PDF to send to the customer.</p>
+            </>
+          ),
+        }}
         actions={
           <QuotationDetailActions
             quotationId={quotation.id}

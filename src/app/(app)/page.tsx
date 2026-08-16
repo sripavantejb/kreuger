@@ -45,6 +45,18 @@ export default async function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Live view of orders in production and this month's quoting activity."
+        help={{
+          content: (
+            <>
+              <p>The dashboard is a read-only snapshot — nothing here can be edited.</p>
+              <ul>
+                <li><strong>Orders in production</strong> — every order that has been released and hasn&apos;t reached Finished Goods yet, with its current stage and deadline status.</li>
+                <li><strong>This month&apos;s quoting activity</strong> — quotations created in the current calendar month.</li>
+              </ul>
+              <p>Deadline colours: on track, at risk, or overdue — based on the order&apos;s target timeline versus today&apos;s date.</p>
+            </>
+          ),
+        }}
       />
       <div className="px-8 py-6 space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

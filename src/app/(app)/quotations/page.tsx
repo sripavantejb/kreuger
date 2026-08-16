@@ -68,6 +68,19 @@ export default async function QuotationsPage({
       <PageHeader
         title="Quotations"
         description="Quantity-based pricing for Mastro, ready to export as a PDF."
+        help={{
+          content: (
+            <>
+              <p>A quotation prices a product and quantity using its base rate and the quantity pricing slabs set in Master Data — larger quantities unlock bigger discounts automatically.</p>
+              <ul>
+                <li><strong>Revise</strong> — create a new quotation number that supersedes an earlier one, keeping both on record.</li>
+                <li><strong>Duplicate</strong> — start a new quotation pre-filled from an existing one.</li>
+                <li><strong>PDF export</strong> — download a formatted quote to send to the customer.</li>
+              </ul>
+              <p>A quotation on its own doesn&apos;t reserve capacity — that only happens once it becomes an order.</p>
+            </>
+          ),
+        }}
         actions={
           canWrite && (
             <Button render={<Link href="/quotations/new" />} nativeButton={false}>

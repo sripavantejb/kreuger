@@ -18,10 +18,17 @@ import { DateRangePicker, type DateRange } from "./date-range-picker";
 import { ManpowerResultPanel } from "./manpower-result-panel";
 import { planManpower, type ManpowerDepartment, type ManpowerConstants } from "@/lib/manpower";
 import { workingDaysBetween, addWorkingDays, type WorkingDayConfig } from "@/lib/working-days";
+import { applyProductDepartmentRates, type DepartmentRateOverride } from "@/lib/product-department-rates";
 import { saveManpowerPlan } from "@/lib/actions-manpower";
 
 type Material = { materialName: string; unit: string; quantityPerUnit: number };
-type ProductOption = { id: string; name: string; code: string; materials: Material[] };
+type ProductOption = {
+  id: string;
+  name: string;
+  code: string;
+  materials: Material[];
+  departmentRates: DepartmentRateOverride[];
+};
 type ColourOption = { id: string; name: string };
 
 export function ManpowerDetailClient({
@@ -65,9 +72,14 @@ export function ManpowerDetailClient({
     [range, workingDayConfig]
   );
 
+  const effectiveDepartments = useMemo(
+    () => applyProductDepartmentRates(departments, effectiveProduct.departmentRates),
+    [departments, effectiveProduct]
+  );
+
   const result = useMemo(
-    () => planManpower(effectiveQuantity, workingDays, departments, constants, effectiveProduct.materials),
-    [effectiveQuantity, workingDays, departments, constants, effectiveProduct]
+    () => planManpower(effectiveQuantity, workingDays, effectiveDepartments, constants, effectiveProduct.materials),
+    [effectiveQuantity, workingDays, effectiveDepartments, constants, effectiveProduct]
   );
 
   const earliestEndDate = useMemo(() => {

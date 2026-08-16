@@ -28,6 +28,21 @@ export default async function MasterDataPage() {
       <PageHeader
         title="Master data"
         description="This drives every calculation in the app. Nothing here is a hardcoded constant."
+        help={{
+          content: (
+            <>
+              <p>Everything on this page is a direct input to the capacity, manpower and pricing calculations elsewhere in the app — change a value here and every future order, quotation and manpower plan uses it.</p>
+              <ul>
+                <li><strong>Departments</strong> — headcount, units/worker/day and the daily ceiling for each production stage, in the order goods pass through them.</li>
+                <li><strong>Products</strong> — base rate, default lead time, materials required per unit, and optional per-department rate overrides for that product alone (open a product to set these).</li>
+                <li><strong>Weekly off &amp; holidays</strong> — which days don&apos;t count as working days for the manpower calculator.</li>
+                <li><strong>Recipients</strong> — who alert emails are addressed to for each department and escalation.</li>
+                <li><strong>Users</strong> — accounts and roles (Admin, Manager, Viewer) — Admin only.</li>
+              </ul>
+              <p>Most fields here are edit-only for Admins; Managers and Viewers see them read-only.</p>
+            </>
+          ),
+        }}
       />
       <div className="px-8 py-6">
         <Tabs defaultValue="departments">

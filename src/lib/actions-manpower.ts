@@ -5,6 +5,7 @@ import { prisma } from "./prisma";
 import { requireRole } from "./auth";
 import { planManpower, type ManpowerLine } from "./manpower";
 import { workingDaysBetween, type WorkingDayConfig } from "./working-days";
+import { applyProductDepartmentRates } from "./product-department-rates";
 
 export async function getWorkingDayConfig(): Promise<WorkingDayConfig> {
   const [settings, holidays] = await Promise.all([
@@ -21,14 +22,15 @@ export async function getWorkingDayConfig(): Promise<WorkingDayConfig> {
 export async function saveManpowerPlan(input: { ocId: string; startDate: Date; endDate: Date }) {
   await requireRole("MANAGER");
 
-  const [oc, departments, settings, config] = await Promise.all([
-    prisma.orderConfirmation.findUniqueOrThrow({
-      where: { id: input.ocId },
-      include: { product: { include: { materials: true } } },
-    }),
+  const oc = await prisma.orderConfirmation.findUniqueOrThrow({
+    where: { id: input.ocId },
+    include: { product: { include: { materials: true } } },
+  });
+  const [departments, settings, config, departmentRates] = await Promise.all([
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
     getWorkingDayConfig(),
+    prisma.productDepartmentRate.findMany({ where: { productId: oc.productId } }),
   ]);
 
   const workingDays = workingDaysBetween(input.startDate, input.endDate, config);
@@ -37,7 +39,8 @@ export async function saveManpowerPlan(input: { ocId: string; startDate: Date; e
     rampDays: settings.rampDays,
     shiftHours: settings.shiftHours,
   };
-  const result = planManpower(oc.quantity, workingDays, departments, constants, oc.product.materials);
+  const effectiveDepartments = applyProductDepartmentRates(departments, departmentRates);
+  const result = planManpower(oc.quantity, workingDays, effectiveDepartments, constants, oc.product.materials);
 
   const plan = await prisma.manpowerPlan.upsert({
     where: { ocId: input.ocId },

@@ -17,23 +17,28 @@ import {
 import { updateProduct, deleteProduct } from "@/lib/actions-master-data";
 import { Trash2 } from "lucide-react";
 
-type Product = { id: string; name: string; code: string; baseRate: number };
+type Product = { id: string; name: string; code: string; baseRate: number; defaultLeadDays: number };
 
 export function ProductBasicForm({ product, readOnly = false }: { product: Product; readOnly?: boolean }) {
   const router = useRouter();
   const [name, setName] = useState(product.name);
   const [code, setCode] = useState(product.code);
   const [baseRate, setBaseRate] = useState(product.baseRate);
+  const [defaultLeadDays, setDefaultLeadDays] = useState(product.defaultLeadDays);
   const [pending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const dirty = name !== product.name || code !== product.code || baseRate !== product.baseRate;
+  const dirty =
+    name !== product.name ||
+    code !== product.code ||
+    baseRate !== product.baseRate ||
+    defaultLeadDays !== product.defaultLeadDays;
 
   function save() {
     startTransition(async () => {
-      await updateProduct({ id: product.id, name, code, baseRate });
+      await updateProduct({ id: product.id, name, code, baseRate, defaultLeadDays });
       toast.success("Product updated");
     });
   }
@@ -63,6 +68,20 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
           disabled={readOnly}
           onChange={(e) => setBaseRate(Number(e.target.value) || 0)}
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="defaultLeadDays">Default lead days</Label>
+        <Input
+          id="defaultLeadDays"
+          type="number"
+          min={1}
+          value={defaultLeadDays}
+          disabled={readOnly}
+          onChange={(e) => setDefaultLeadDays(Math.max(1, Number(e.target.value) || 1))}
+        />
+        <p className="text-xs text-muted-foreground">
+          Pre-fills the target timeline on a new order for this product.
+        </p>
       </div>
       {!readOnly && (
         <div className="flex items-center justify-between pt-1">

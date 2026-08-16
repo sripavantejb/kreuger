@@ -72,6 +72,18 @@ export default async function OrdersPage({
       <PageHeader
         title="Orders"
         description="Order confirmations, capacity plans and stage tracking."
+        help={{
+          content: (
+            <>
+              <p>An order confirmation (OC) is created from a product, quantity and target timeline. Releasing it runs a capacity plan against your Master Data department rates and either accepts it or tells you why it&apos;s blocked.</p>
+              <ul>
+                <li><strong>Stage tracking</strong> — each OC moves through the department stages in sequence; advancing a stage is logged and can trigger a deadline alert.</li>
+                <li><strong>Deadline status</strong> — on track, at risk or overdue, based on the target timeline set at release.</li>
+              </ul>
+              <p>Open an order to see its full capacity breakdown, stage history and to advance or cancel it.</p>
+            </>
+          ),
+        }}
         actions={
           canWrite && (
             <Button render={<Link href="/orders/new" />} nativeButton={false}>
