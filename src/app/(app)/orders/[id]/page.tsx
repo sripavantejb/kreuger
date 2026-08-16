@@ -25,7 +25,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   await syncBreaches();
 
-  const [oc, departments, session] = await Promise.all([
+  const [oc, departments, session, pendingRequest] = await Promise.all([
     prisma.orderConfirmation.findUnique({
       where: { id },
       include: {
@@ -38,9 +38,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     }),
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
     getSession(),
+    prisma.stageChangeRequest.findFirst({
+      where: { ocId: id, status: "pending" },
+      orderBy: { requestedAt: "desc" },
+    }),
   ]);
   if (!oc) notFound();
   const canWrite = session ? roleAtLeast(session.role, "MANAGER") : false;
+  const canStage = session ? roleAtLeast(session.role, "HEAD") : false;
 
   const stageList = buildStageList(departments.map((d) => d.name));
   const next = nextStage(stageList, oc.currentStage);
@@ -116,7 +121,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     </>
                   )}
                 </div>
-                {canWrite && <AdvanceStageButton ocId={oc.id} nextStage={next} />}
+                {canStage && session && (
+                  <AdvanceStageButton
+                    ocId={oc.id}
+                    nextStage={next}
+                    role={session.role}
+                    pendingRequest={
+                      pendingRequest
+                        ? {
+                            id: pendingRequest.id,
+                            toStage: pendingRequest.toStage,
+                            requestedBy: pendingRequest.requestedBy,
+                          }
+                        : null
+                    }
+                  />
+                )}
               </div>
             )}
           </CardContent>

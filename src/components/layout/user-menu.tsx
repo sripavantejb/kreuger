@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Admin",
   MANAGER: "Manager",
+  HEAD: "Plant head",
   VIEWER: "Viewer",
 };
 

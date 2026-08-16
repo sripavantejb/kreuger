@@ -28,7 +28,12 @@ import { Plus, KeyRound, Trash2 } from "lucide-react";
 
 type UserRow = { id: string; name: string; email: string; role: string; createdAt: Date };
 
-const ROLE_LABEL: Record<string, string> = { ADMIN: "Admin", MANAGER: "Manager", VIEWER: "Viewer" };
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Admin",
+  MANAGER: "Manager",
+  HEAD: "Plant head",
+  VIEWER: "Viewer",
+};
 
 function RoleSelect({ user, disabled }: { user: UserRow; disabled: boolean }) {
   const [pending, startTransition] = useTransition();

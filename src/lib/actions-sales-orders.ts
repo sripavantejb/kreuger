@@ -290,96 +290,222 @@ export async function approveAndReleaseSalesOrder(input: {
   return ocId;
 }
 
-export async function sendStageReminder(ocId: string) {
-  await requireRole("MANAGER");
-  const [oc, directory] = await Promise.all([
-    prisma.orderConfirmation.findUniqueOrThrow({
-      where: { id: ocId },
-      include: { product: true, colour: true },
-    }),
-    getContactDirectory(),
-  ]);
-  if (oc.status === "closed" || oc.status === "cancelled") {
-    throw new Error("Cannot remind on a closed or cancelled OC.");
-  }
-  // Deliberate reminder — unique per trigger time so managers can re-send
-  await notify({
-    type: "follow_up_reminder",
-    dedupeKey: `follow_up_reminder:${oc.id}:${Date.now()}`,
-    ocId: oc.id,
-    stageName: oc.currentStage,
-    directory,
-    context: {
-      ocNumber: oc.ocNumber,
-      productName: oc.product.name,
-      quantity: oc.quantity,
-      colourName: oc.colour.name,
-      currentStage: oc.currentStage,
-      status: "Follow-up pending",
-      priority: oc.priority,
-      requiredAction: "Update progress or advance the stage when ready.",
-      dashboardUrl: dashboardLink(`/orders/${oc.id}`),
-    },
-  });
-  revalidatePath("/alerts");
-  revalidatePath("/follow-up");
-}
-
-export async function escalateStage(ocId: string) {
-  await requireRole("MANAGER");
-  const [oc, directory] = await Promise.all([
-    prisma.orderConfirmation.findUniqueOrThrow({
-      where: { id: ocId },
-      include: { product: true, colour: true },
-    }),
-    getContactDirectory(),
-  ]);
-  if (oc.status === "closed" || oc.status === "cancelled") {
-    throw new Error("Cannot escalate a closed or cancelled OC.");
-  }
-  await notify({
-    type: "escalation",
-    dedupeKey: `escalation:${oc.id}:${Date.now()}`,
-    ocId: oc.id,
-    stageName: oc.currentStage,
-    directory,
-    context: {
-      ocNumber: oc.ocNumber,
-      productName: oc.product.name,
-      quantity: oc.quantity,
-      colourName: oc.colour.name,
-      currentStage: oc.currentStage,
-      status: "Escalated",
-      priority: oc.priority,
-      requiredAction: "Review and advise next steps.",
-      dashboardUrl: dashboardLink(`/orders/${oc.id}`),
-    },
-  });
-  revalidatePath("/alerts");
-  revalidatePath("/follow-up");
-}
-
-export async function markFollowUpNoted(ocId: string) {
-  await requireRole("MANAGER");
-  const session = await getSession();
-  const oc = await prisma.orderConfirmation.findUniqueOrThrow({
-    where: { id: ocId },
-    include: { product: true },
-  });
-  await prisma.alert.create({
-    data: {
-      ocId: oc.id,
+export async function sendStageReminder(ocId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole("HEAD");
+  try {
+    const [oc, directory] = await Promise.all([
+      prisma.orderConfirmation.findUniqueOrThrow({
+        where: { id: ocId },
+        include: { product: true, colour: true },
+      }),
+      getContactDirectory(),
+    ]);
+    if (oc.status === "closed" || oc.status === "cancelled") {
+      return { ok: false, error: "Cannot remind on a closed or cancelled OC." };
+    }
+    await notify({
       type: "follow_up_reminder",
-      recipient: session?.name ?? "Manager",
-      recipientEmail: session?.email ?? "",
-      subject: `${oc.ocNumber} — follow-up marked complete`,
-      body: `Follow-up on ${oc.ocNumber} (${oc.product.name}, stage ${oc.currentStage}) marked complete by ${session?.name ?? "manager"}.`,
-      emailSent: false,
-      emailStatus: "disabled",
-      emailError: "Internal note — no email",
-      dedupeKey: `follow_up_noted:${oc.id}:${Date.now()}`,
-    },
-  });
-  revalidatePath("/alerts");
-  revalidatePath("/follow-up");
+      dedupeKey: `follow_up_reminder:${oc.id}:${Date.now()}`,
+      ocId: oc.id,
+      stageName: oc.currentStage,
+      directory,
+      context: {
+        ocNumber: oc.ocNumber,
+        productName: oc.product.name,
+        quantity: oc.quantity,
+        colourName: oc.colour.name,
+        currentStage: oc.currentStage,
+        status: "Follow-up pending",
+        priority: oc.priority,
+        requiredAction: "Update progress or advance the stage when ready.",
+        dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+      },
+    });
+    // Bring back into active queue if previously marked done for this stage
+    if (oc.followUpClearedStage === oc.currentStage) {
+      await prisma.orderConfirmation.update({
+        where: { id: oc.id },
+        data: { followUpClearedStage: "" },
+      });
+    }
+    revalidatePath("/alerts");
+    revalidatePath("/follow-up");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Reminder failed." };
+  }
+}
+
+export async function escalateStage(ocId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole("HEAD");
+  try {
+    const [oc, directory] = await Promise.all([
+      prisma.orderConfirmation.findUniqueOrThrow({
+        where: { id: ocId },
+        include: { product: true, colour: true },
+      }),
+      getContactDirectory(),
+    ]);
+    if (oc.status === "closed" || oc.status === "cancelled") {
+      return { ok: false, error: "Cannot escalate a closed or cancelled OC." };
+    }
+    await notify({
+      type: "escalation",
+      dedupeKey: `escalation:${oc.id}:${Date.now()}`,
+      ocId: oc.id,
+      stageName: oc.currentStage,
+      directory,
+      context: {
+        ocNumber: oc.ocNumber,
+        productName: oc.product.name,
+        quantity: oc.quantity,
+        colourName: oc.colour.name,
+        currentStage: oc.currentStage,
+        status: "Escalated",
+        priority: oc.priority,
+        requiredAction: "Review and advise next steps.",
+        dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+      },
+    });
+    if (oc.followUpClearedStage === oc.currentStage) {
+      await prisma.orderConfirmation.update({
+        where: { id: oc.id },
+        data: { followUpClearedStage: "" },
+      });
+    }
+    revalidatePath("/alerts");
+    revalidatePath("/follow-up");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Escalation failed." };
+  }
+}
+
+/** Mark follow-up done for the current stage — hides from active queue until stage advances. */
+export async function markFollowUpNoted(ocId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole("HEAD");
+  try {
+    const session = await getSession();
+    const oc = await prisma.orderConfirmation.findUniqueOrThrow({
+      where: { id: ocId },
+      include: { product: true },
+    });
+    if (oc.status !== "in_progress") {
+      return { ok: false, error: "Only in-progress OCs can be marked done." };
+    }
+
+    await prisma.orderConfirmation.update({
+      where: { id: oc.id },
+      data: { followUpClearedStage: oc.currentStage },
+    });
+
+    // Cancel pending schedules for this stage
+    await prisma.followUpReminder.updateMany({
+      where: { ocId: oc.id, stageName: oc.currentStage, status: "scheduled" },
+      data: { status: "cancelled" },
+    });
+
+    await prisma.alert.create({
+      data: {
+        ocId: oc.id,
+        type: "follow_up_reminder",
+        recipient: session?.name ?? "Manager",
+        recipientEmail: session?.email ?? "",
+        subject: `${oc.ocNumber} — follow-up marked complete`,
+        body: `Follow-up on ${oc.ocNumber} (${oc.product.name}, stage ${oc.currentStage}) marked complete by ${session?.name ?? "manager"}. Hidden from the active queue until the stage advances.`,
+        emailSent: false,
+        emailStatus: "disabled",
+        emailError: "Internal note — no email",
+        dedupeKey: `follow_up_noted:${oc.id}:${Date.now()}`,
+      },
+    });
+    revalidatePath("/alerts");
+    revalidatePath("/follow-up");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not mark done." };
+  }
+}
+
+export async function scheduleFollowUpReminder(input: {
+  ocId: string;
+  scheduledAtIso: string;
+  note?: string;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  await requireRole("HEAD");
+  try {
+    const session = await getSession();
+    const scheduledAt = new Date(input.scheduledAtIso);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      return { ok: false, error: "Invalid schedule date/time." };
+    }
+    if (scheduledAt.getTime() < Date.now() - 60_000) {
+      return { ok: false, error: "Schedule time must be in the future." };
+    }
+
+    const oc = await prisma.orderConfirmation.findUniqueOrThrow({
+      where: { id: input.ocId },
+    });
+    if (oc.status !== "in_progress") {
+      return { ok: false, error: "Can only schedule reminders for in-progress OCs." };
+    }
+
+    const reminder = await prisma.followUpReminder.create({
+      data: {
+        ocId: oc.id,
+        stageName: oc.currentStage,
+        scheduledAt,
+        note: (input.note ?? "").trim().slice(0, 500),
+        status: "scheduled",
+        createdBy: session?.name ?? session?.email ?? "Manager",
+      },
+    });
+
+    // Re-open in active queue if it was cleared
+    if (oc.followUpClearedStage === oc.currentStage) {
+      await prisma.orderConfirmation.update({
+        where: { id: oc.id },
+        data: { followUpClearedStage: "" },
+      });
+    }
+
+    revalidatePath("/follow-up");
+    return { ok: true, id: reminder.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not schedule reminder." };
+  }
+}
+
+export async function cancelFollowUpReminder(
+  reminderId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole("HEAD");
+  try {
+    const reminder = await prisma.followUpReminder.findUniqueOrThrow({ where: { id: reminderId } });
+    if (reminder.status !== "scheduled") {
+      return { ok: false, error: "Only scheduled reminders can be cancelled." };
+    }
+    await prisma.followUpReminder.update({
+      where: { id: reminderId },
+      data: { status: "cancelled" },
+    });
+    revalidatePath("/follow-up");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not cancel reminder." };
+  }
+}
+
+export async function reopenFollowUp(ocId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole("HEAD");
+  try {
+    await prisma.orderConfirmation.update({
+      where: { id: ocId },
+      data: { followUpClearedStage: "" },
+    });
+    revalidatePath("/follow-up");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reopen follow-up." };
+  }
 }

@@ -263,6 +263,12 @@ model OrderConfirmation {
   events OcStageEvent[]
   alerts Alert[]
   manpowerPlan ManpowerPlan?
+  followUpReminders FollowUpReminder[]
+  plantTasks PlantTask[]
+  stageChangeRequests StageChangeRequest[]
+
+  /// When set to the current stage, the OC is hidden from the active follow-up queue until the stage advances.
+  followUpClearedStage String @default("")
 }
 
 model OcDepartmentPlan {
@@ -362,6 +368,63 @@ model EmailLog {
   errorMessage   String    @default("")
 
   alert Alert? @relation(fields: [alertId], references: [id], onDelete: Cascade)
+}
+
+/// Scheduled (or sent) stage follow-up reminders for an OC.
+model FollowUpReminder {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  ocId        String    @db.ObjectId
+  stageName   String
+  scheduledAt DateTime
+  note        String    @default("")
+  status      String    // scheduled | sent | cancelled | skipped
+  createdBy   String    @default("")
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime?
+  alertId     String?
+
+  oc OrderConfirmation @relation(fields: [ocId], references: [id], onDelete: Cascade)
+}
+
+/// Tasks assigned to plant / department heads (or any head contact).
+model PlantTask {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  ocId           String?   @db.ObjectId
+  title          String
+  description    String    @default("")
+  assigneeName   String
+  assigneeEmail  String
+  assigneeKey    String    // primary | procurement | dispatch | dept:<name>
+  stageName      String    @default("")
+  priority       String    @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status         String    @default("open") // open | in_progress | done | cancelled
+  dueAt          DateTime?
+  createdBy      String    @default("")
+  createdByEmail String    @default("")
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  completionNote String    @default("")
+
+  oc OrderConfirmation? @relation(fields: [ocId], references: [id], onDelete: Cascade)
+}
+
+/// Stage advance requests — plant heads approve before the OC moves.
+model StageChangeRequest {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  ocId             String    @db.ObjectId
+  fromStage        String
+  toStage          String
+  status           String    // pending | approved | rejected | cancelled
+  requestedBy      String    @default("")
+  requestedByEmail String    @default("")
+  requestedAt      DateTime  @default(now())
+  reviewedBy       String    @default("")
+  reviewedByEmail  String    @default("")
+  reviewedAt       DateTime?
+  note             String    @default("")
+  reviewNote       String    @default("")
+
+  oc OrderConfirmation @relation(fields: [ocId], references: [id], onDelete: Cascade)
 }
 
 // RAG knowledge chunks — text + OpenAI embeddings for in-process cosine retrieval.

@@ -14,6 +14,9 @@ const daysAgo = (d: number) => new Date(now.getTime() - d * DAY_MS);
 
 async function reset() {
   await prisma.knowledgeChunk.deleteMany();
+  await prisma.plantTask.deleteMany();
+  await prisma.stageChangeRequest.deleteMany();
+  await prisma.followUpReminder.deleteMany();
   await prisma.manpowerPlanLine.deleteMany();
   await prisma.manpowerPlan.deleteMany();
   await prisma.holiday.deleteMany();
@@ -78,6 +81,14 @@ async function main() {
         passwordHash: await hashPassword("ChangeMe123!"),
         name: "Plant Manager",
         role: "MANAGER",
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: primaryEmail,
+        passwordHash: await hashPassword("ChangeMe123!"),
+        name: "Primary Head",
+        role: "HEAD",
       },
     }),
     prisma.user.create({

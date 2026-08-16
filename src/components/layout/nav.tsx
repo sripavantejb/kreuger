@@ -13,6 +13,8 @@ import {
   Database,
   BarChart3,
   Users2,
+  ClipboardPlus,
+  ShieldCheck,
 } from "lucide-react";
 
 const links = [
@@ -21,6 +23,8 @@ const links = [
   { href: "/sales-orders", label: "Sales orders", icon: ClipboardCheck },
   { href: "/orders", label: "Orders", icon: ClipboardList },
   { href: "/follow-up", label: "Follow-up", icon: ListChecks },
+  { href: "/tasks", label: "Tasks", icon: ClipboardPlus },
+  { href: "/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/manpower", label: "Manpower", icon: Users2 },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/alerts", label: "Alerts", icon: BellRing },

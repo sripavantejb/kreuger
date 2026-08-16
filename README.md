@@ -10,7 +10,7 @@ npm run seed
 npm run dev
 ```
 
-Seeded users (password `ChangeMe123!`): `admin@kreuger.local`, `manager@kreuger.local`, `viewer@kreuger.local`.
+Seeded users (password `ChangeMe123!`): `admin@kreuger.local`, `manager@kreuger.local`, `viewer@kreuger.local`, plus plant head `sripavantejb@gmail.com` (HEAD role — matches Primary head email).
 
 ## Demo workflow
 
@@ -30,7 +30,9 @@ Seeded users (password `ChangeMe123!`): `admin@kreuger.local`, `manager@kreuger.
 | `/quotations` | Customer quotations + PDF |
 | `/sales-orders` | Confirmation → coordinator verification → OC release |
 | `/orders` | Order confirmations, capacity, stages |
-| `/follow-up` | Stage-wise follow-up queue |
+| `/follow-up` | Stage follow-up — remind now, schedule reminders, escalate, mark done, assign tasks |
+| `/tasks` | Plant-head task inbox — assign and complete work |
+| `/approvals` | Stage-change approvals for plant / department heads |
 | `/manpower` | Date-range manpower efficiency |
 | `/reports` | On-time, stage duration, bottlenecks |
 | `/alerts` | Internal notifications (+ optional SMTP) |

@@ -74,7 +74,14 @@ export function MobileShell({
           <div className="text-sm font-semibold tracking-tight text-foreground">Production console</div>
         </div>
         <div className="hidden text-xs text-muted-foreground md:block">
-          {user.name.split(" ")[0]} · {user.role === "ADMIN" ? "Admin" : user.role === "MANAGER" ? "Manager" : "Viewer"}
+          {user.name.split(" ")[0]} ·{" "}
+          {user.role === "ADMIN"
+            ? "Admin"
+            : user.role === "MANAGER"
+              ? "Manager"
+              : user.role === "HEAD"
+                ? "Plant head"
+                : "Viewer"}
         </div>
       </header>
 
