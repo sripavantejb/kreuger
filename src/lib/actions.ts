@@ -6,11 +6,12 @@ import { computeUnitRate } from "./pricing";
 import { planCapacity } from "./planning";
 import { applyProductDepartmentRates } from "./product-department-rates";
 import { buildStageList, nextStage, PROCUREMENT_STAGE, FINISHED_GOODS_STAGE } from "./stages";
-import { buildDeadlineBreachAlert, buildStageEntryAlert, getContactDirectory } from "./alerts";
+import { getContactDirectory, notify, dashboardLink } from "./alerts";
 import { requireRole, getSession } from "./auth";
-import { maybeSendAlertEmail } from "./email";
 import { saveManpowerPlan } from "./actions-manpower";
 import { isPriority, type Priority } from "./priority";
+import { computeMaterialRequirements } from "./materials";
+import { formatDate } from "./format";
 
 async function nextQuotationNumber(): Promise<string> {
   const year = new Date().getFullYear();
@@ -217,16 +218,76 @@ export async function createOrder(input: {
     },
   });
 
-  const alertData = buildStageEntryAlert({
-    ocNumber,
-    productName: product.name,
-    quantity: input.quantity,
-    colourName: colour.name,
+  const expected = new Date(now.getTime() + settings.procurementDays * 86_400_000);
+  await notify({
+    type: "stage_entry",
+    dedupeKey: `stage_entry:${oc.id}:${PROCUREMENT_STAGE}:${now.toISOString()}`,
+    ocId: oc.id,
     stageName: PROCUREMENT_STAGE,
     directory,
+    context: {
+      ocNumber,
+      productName: product.name,
+      quantity: input.quantity,
+      colourName: colour.name,
+      currentStage: PROCUREMENT_STAGE,
+      previousStage: "—",
+      stageStartTime: formatDate(now),
+      expectedCompletion: formatDate(expected),
+      status: "In progress",
+      priority,
+      requiredAction: "Plan procurement and confirm material readiness.",
+      dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+    },
   });
-  const alert = await prisma.alert.create({ data: { ocId: oc.id, ...alertData } });
-  await maybeSendAlertEmail(alert);
+
+  if (priority === "URGENT" || priority === "HIGH") {
+    await notify({
+      type: "urgent_order",
+      dedupeKey: `urgent_order:${oc.id}`,
+      ocId: oc.id,
+      directory,
+      context: {
+        ocNumber,
+        productName: product.name,
+        quantity: input.quantity,
+        colourName: colour.name,
+        priority,
+        currentStage: PROCUREMENT_STAGE,
+        status: "Released to production",
+        requiredAction: "Prioritise capacity and expedite procurement.",
+        dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+      },
+    });
+  }
+
+  const productWithMats = await prisma.product.findUniqueOrThrow({
+    where: { id: input.productId },
+    include: { materials: true },
+  });
+  const matLines = computeMaterialRequirements(productWithMats.materials, input.quantity);
+  const shortages = matLines.filter((m) => m.status === "SHORTAGE");
+  if (shortages.length > 0) {
+    await notify({
+      type: "material_shortage",
+      dedupeKey: `material_shortage:${oc.id}`,
+      ocId: oc.id,
+      directory,
+      context: {
+        ocNumber,
+        productName: product.name,
+        quantity: input.quantity,
+        colourName: colour.name,
+        currentStage: PROCUREMENT_STAGE,
+        status: "SHORTAGE",
+        materialsSummary: shortages
+          .map((m) => `${m.materialName}: need ${m.requiredQty} ${m.unit}, short ${m.shortage} ${m.unit}`)
+          .join("; "),
+        requiredAction: "Raise procurement for short materials (demo stock — not SAP).",
+        dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+      },
+    });
+  }
 
   try {
     await saveManpowerPlan({
@@ -242,6 +303,7 @@ export async function createOrder(input: {
   revalidatePath("/");
   revalidatePath("/manpower");
   revalidatePath("/follow-up");
+  revalidatePath("/alerts");
   return oc.id;
 }
 
@@ -293,17 +355,27 @@ export async function advanceStage(ocId: string) {
   });
 
   if (breached) {
-    const breachAlertData = buildDeadlineBreachAlert({
-      ocNumber: oc.ocNumber,
-      productName: oc.product.name,
-      quantity: oc.quantity,
+    await notify({
+      type: "deadline_breach",
+      dedupeKey: `deadline_breach:${oc.id}:${openEvent.id}`,
+      ocId: oc.id,
       stageName: openEvent.stageName,
-      deadlineDays: openEvent.deadlineDays,
-      elapsedDays,
       directory,
+      context: {
+        ocNumber: oc.ocNumber,
+        productName: oc.product.name,
+        quantity: oc.quantity,
+        colourName: oc.colour.name,
+        currentStage: openEvent.stageName,
+        previousStage: openEvent.stageName,
+        deadline: `${openEvent.deadlineDays.toFixed(1)} day(s)`,
+        stageStartTime: formatDate(openEvent.enteredAt),
+        status: `Breached — elapsed ${elapsedDays.toFixed(1)} day(s)`,
+        priority: oc.priority,
+        requiredAction: "Expedite and advise on a revised timeline.",
+        dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+      },
     });
-    const breachAlert = await prisma.alert.create({ data: { ocId: oc.id, ...breachAlertData } });
-    await maybeSendAlertEmail(breachAlert);
   }
 
   const nextDeadline =
@@ -322,16 +394,31 @@ export async function advanceStage(ocId: string) {
     },
   });
 
-  const entryAlertData = buildStageEntryAlert({
-    ocNumber: oc.ocNumber,
-    productName: oc.product.name,
-    quantity: oc.quantity,
-    colourName: oc.colour.name,
+  const nextExpected = new Date(now.getTime() + nextDeadline * 86_400_000);
+  await notify({
+    type: next === FINISHED_GOODS_STAGE ? "oc_completed" : "stage_entry",
+    dedupeKey: `stage_entry:${oc.id}:${next}:${now.toISOString()}`,
+    ocId: oc.id,
     stageName: next,
     directory,
+    context: {
+      ocNumber: oc.ocNumber,
+      productName: oc.product.name,
+      quantity: oc.quantity,
+      colourName: oc.colour.name,
+      previousStage: openEvent.stageName,
+      currentStage: next,
+      stageStartTime: formatDate(now),
+      expectedCompletion: nextDeadline > 0 ? formatDate(nextExpected) : "—",
+      status: next === FINISHED_GOODS_STAGE ? "Completed" : "In progress",
+      priority: oc.priority,
+      requiredAction:
+        next === FINISHED_GOODS_STAGE
+          ? "Confirm finished goods and close dispatch."
+          : "Plan capacity and confirm stage receipt.",
+      dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+    },
   });
-  const entryAlert = await prisma.alert.create({ data: { ocId: oc.id, ...entryAlertData } });
-  await maybeSendAlertEmail(entryAlert);
 
   await prisma.orderConfirmation.update({
     where: { id: oc.id },

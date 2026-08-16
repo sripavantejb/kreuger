@@ -224,9 +224,23 @@ export async function updateEscalationContacts(input: {
   dispatchHeadEmail: string;
   salesCoordinatorName: string;
   salesCoordinatorEmail: string;
+  primaryHeadName: string;
+  primaryHeadEmail: string;
+  secondaryHeadName: string;
+  secondaryHeadEmail: string;
 }) {
   await requireRole("ADMIN");
-  await prisma.settings.update({ where: { id: 1 }, data: input });
+  await prisma.settings.update({
+    where: { id: 1 },
+    data: {
+      ...input,
+      // Keep legacy plant/sales fields aligned with primary/secondary for older screens
+      plantHeadName: input.primaryHeadName || input.plantHeadName,
+      plantHeadEmail: input.primaryHeadEmail || input.plantHeadEmail,
+      salesCoordinatorName: input.secondaryHeadName || input.salesCoordinatorName,
+      salesCoordinatorEmail: input.secondaryHeadEmail || input.salesCoordinatorEmail,
+    },
+  });
   revalidatePath("/master-data");
 }
 

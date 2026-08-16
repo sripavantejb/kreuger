@@ -34,6 +34,12 @@ model Settings {
   dispatchHeadEmail    String @default("dispatch.head@kreuger.local")
   salesCoordinatorName  String @default("Sales Coordinator")
   salesCoordinatorEmail String @default("sales.coordinator@kreuger.local")
+
+  // Demo / ops notification heads — editable in Master Data → Recipients (never hardcode in UI logic)
+  primaryHeadName    String @default("Primary Head")
+  primaryHeadEmail   String @default("")
+  secondaryHeadName  String @default("Secondary Head")
+  secondaryHeadEmail String @default("")
 }
 
 // Named holidays excluded from working-day counts, alongside weeklyOff.
@@ -320,14 +326,40 @@ model ManpowerPlanLine {
 model Alert {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   ocId           String?  @db.ObjectId
-  type           String   // stage_entry | deadline_breach | sales_order_confirmed | follow_up_reminder | escalation
+  type           String   // stage_entry | deadline_breach | deadline_at_risk | sales_order_confirmed | sales_coordinator_approval | follow_up_reminder | escalation | material_shortage | urgent_order | oc_completed | oc_deadline_breach
   recipient      String
   recipientEmail String   @default("")
   subject        String
   body           String
+  htmlBody       String   @default("")
   createdAt      DateTime @default(now())
-  emailSent      Boolean  @default(false)
+  emailSent      Boolean  @default(false) // legacy mirror of emailStatus === "sent"
+  emailStatus    String   @default("pending") // pending | sent | failed | disabled
+  emailSentAt    DateTime?
+  emailError     String   @default("")
+  dedupeKey      String?  @unique
   salesOrderId   String?  @db.ObjectId
 
-  oc OrderConfirmation? @relation(fields: [ocId], references: [id], onDelete: Cascade)
+  oc        OrderConfirmation? @relation(fields: [ocId], references: [id], onDelete: Cascade)
+  emailLogs EmailLog[]
+}
+
+// Audit log of every email delivery attempt (one row per Alert send attempt).
+model EmailLog {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  alertId        String?   @db.ObjectId
+  eventType      String
+  recipient      String
+  recipientEmail String
+  subject        String
+  body           String    @default("")
+  ocId           String?   @db.ObjectId
+  salesOrderId   String?   @db.ObjectId
+  dedupeKey      String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+  status         String    // pending | sent | failed | disabled
+  errorMessage   String    @default("")
+
+  alert Alert? @relation(fields: [alertId], references: [id], onDelete: Cascade)
 }

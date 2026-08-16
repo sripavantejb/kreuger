@@ -1,55 +1,49 @@
-// Real SMTP sending — off by default. Alerts are always stored in the DB;
-// this module only relays them when ENABLE_EMAIL=true and SMTP/Gmail is configured.
+// SMTP delivery — credentials only from env. Alerts always persist via notify().
 //
-// Gmail setup (recommended for demo):
-//   ENABLE_EMAIL=true
-//   SMTP_HOST=smtp.gmail.com
-//   SMTP_PORT=587
-//   SMTP_USER=your.name@gmail.com
-//   SMTP_PASS=<16-char Google App Password>
-//   SMTP_FROM="Kreuger Ops <your.name@gmail.com>"
-//   ALERT_GMAIL=your.name@gmail.com   # optional: override all alert recipients for testing
+// ENABLE_EMAIL=true
+// SMTP_HOST=smtp.gmail.com
+// SMTP_PORT=587
+// SMTP_USER=...
+// SMTP_PASS=...   (or SMTP_PASSWORD / GMAIL_APP_PASSWORD)
+// SMTP_FROM="Kreuger Ops <...>"
 
-import { prisma } from "./prisma";
+export function isEmailSendingEnabled(): boolean {
+  return process.env.ENABLE_EMAIL === "true";
+}
 
-type AlertLike = {
-  id: string;
-  recipient: string;
-  recipientEmail: string;
-  subject: string;
-  body: string;
-};
-
-function emailEnabled(): boolean {
-  if (process.env.ENABLE_EMAIL !== "true") return false;
-  const host = process.env.SMTP_HOST || (process.env.GMAIL_USER ? "smtp.gmail.com" : "");
-  const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+export function smtpConfigured(): boolean {
+  const { host, user, pass } = resolveSmtp();
   return Boolean(host && user && pass);
 }
 
 function resolveSmtp() {
   const user = process.env.SMTP_USER || process.env.GMAIL_USER || "";
-  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
-  const host = process.env.SMTP_HOST || (user.includes("@gmail.com") || process.env.GMAIL_USER ? "smtp.gmail.com" : "");
+  const pass =
+    process.env.SMTP_PASS ||
+    process.env.SMTP_PASSWORD ||
+    process.env.GMAIL_APP_PASSWORD ||
+    "";
+  const host =
+    process.env.SMTP_HOST ||
+    (user.includes("@gmail.com") || process.env.GMAIL_USER ? "smtp.gmail.com" : "");
   const port = Number(process.env.SMTP_PORT ?? 587);
   return { user, pass, host, port, secure: port === 465 };
 }
 
-/** Optional demo override so every alert lands in one Gmail inbox. */
-export function resolveAlertRecipientEmail(configuredEmail: string): string {
-  const override = process.env.ALERT_GMAIL?.trim();
-  if (override) return override;
-  return configuredEmail;
-}
-
-export async function maybeSendAlertEmail(alert: AlertLike): Promise<void> {
-  const to = resolveAlertRecipientEmail(alert.recipientEmail);
-  if (!emailEnabled() || !to) {
-    if (process.env.ENABLE_EMAIL === "true" && !to) {
-      console.warn(`Alert ${alert.id} skipped: no recipient email`);
-    }
-    return;
+export async function deliverEmail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!isEmailSendingEnabled()) {
+    return { ok: false, error: "ENABLE_EMAIL is false" };
+  }
+  if (!smtpConfigured()) {
+    return { ok: false, error: "SMTP not configured" };
+  }
+  if (!input.to) {
+    return { ok: false, error: "Missing recipient" };
   }
 
   try {
@@ -62,27 +56,63 @@ export async function maybeSendAlertEmail(alert: AlertLike): Promise<void> {
       auth: { user: smtp.user, pass: smtp.pass },
     });
 
-    const from =
-      process.env.SMTP_FROM ||
-      `Kreuger Ops <${smtp.user}>`;
-
     await transport.sendMail({
-      from,
-      to,
-      subject: alert.subject,
-      text: `${alert.body}\n\n—\nKreuger Ops alert for ${alert.recipient}${
-        process.env.ALERT_GMAIL ? ` (delivered via ALERT_GMAIL override)` : ""
-      }`,
-      html: `<p>${alert.body.replace(/\n/g, "<br/>")}</p><hr/><p style="color:#666;font-size:12px">Kreuger Ops · intended for ${alert.recipient}</p>`,
+      from: process.env.SMTP_FROM || `Kreuger Ops <${smtp.user}>`,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html || undefined,
     });
-
-    await prisma.alert.update({ where: { id: alert.id }, data: { emailSent: true } });
+    return { ok: true };
   } catch (err) {
-    console.error("Failed to send alert email:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Failed to send alert email:", message);
+    return { ok: false, error: message };
   }
 }
 
-/** Lightweight connectivity check used by Master Data / ops. */
+/** @deprecated Use notify() from notifications.ts */
+export async function maybeSendAlertEmail(alert: {
+  id: string;
+  recipient: string;
+  recipientEmail: string;
+  subject: string;
+  body: string;
+  htmlBody?: string;
+}): Promise<void> {
+  const { prisma } = await import("./prisma");
+  if (!isEmailSendingEnabled()) {
+    await prisma.alert.update({
+      where: { id: alert.id },
+      data: { emailStatus: "disabled", emailError: "ENABLE_EMAIL is false", emailSent: false },
+    });
+    return;
+  }
+  if (!alert.recipientEmail || !smtpConfigured()) {
+    await prisma.alert.update({
+      where: { id: alert.id },
+      data: {
+        emailStatus: "failed",
+        emailError: !alert.recipientEmail ? "No recipient email" : "SMTP not configured",
+        emailSent: false,
+      },
+    });
+    return;
+  }
+  const result = await deliverEmail({
+    to: alert.recipientEmail,
+    subject: alert.subject,
+    text: alert.body,
+    html: alert.htmlBody,
+  });
+  await prisma.alert.update({
+    where: { id: alert.id },
+    data: result.ok
+      ? { emailStatus: "sent", emailSent: true, emailSentAt: new Date(), emailError: "" }
+      : { emailStatus: "failed", emailSent: false, emailError: result.error || "Send failed" },
+  });
+}
+
 export async function getEmailDeliveryStatus(): Promise<{
   enabled: boolean;
   configured: boolean;
@@ -92,10 +122,10 @@ export async function getEmailDeliveryStatus(): Promise<{
 }> {
   const smtp = resolveSmtp();
   return {
-    enabled: process.env.ENABLE_EMAIL === "true",
-    configured: emailEnabled(),
+    enabled: isEmailSendingEnabled(),
+    configured: smtpConfigured(),
     host: smtp.host || "(not set)",
     from: process.env.SMTP_FROM || (smtp.user ? `Kreuger Ops <${smtp.user}>` : "(not set)"),
-    overrideTo: process.env.ALERT_GMAIL?.trim() || null,
+    overrideTo: null,
   };
 }

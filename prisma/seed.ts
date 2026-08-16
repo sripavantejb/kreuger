@@ -16,6 +16,7 @@ async function reset() {
   await prisma.manpowerPlanLine.deleteMany();
   await prisma.manpowerPlan.deleteMany();
   await prisma.holiday.deleteMany();
+  await prisma.emailLog.deleteMany();
   await prisma.alert.deleteMany();
   await prisma.ocStageEvent.deleteMany();
   await prisma.ocDepartmentPlan.deleteMany();
@@ -37,7 +38,8 @@ async function reset() {
 async function main() {
   await reset();
 
-  const alertGmail = process.env.ALERT_GMAIL?.trim();
+  const primaryEmail = "sripavantejb@gmail.com";
+  const secondaryEmail = "harshapolinax@gmail.com";
   const settings = await prisma.settings.create({
     data: {
       id: 1,
@@ -45,14 +47,18 @@ async function main() {
       rampDays: 1.5,
       shiftHours: 8,
       gstPercent: 18,
-      plantHeadName: "Plant Head",
-      plantHeadEmail: alertGmail || "plant.head@kreuger.local",
+      primaryHeadName: "Primary Head",
+      primaryHeadEmail: primaryEmail,
+      secondaryHeadName: "Secondary Head",
+      secondaryHeadEmail: secondaryEmail,
+      plantHeadName: "Primary Head",
+      plantHeadEmail: primaryEmail,
       procurementHeadName: "Procurement Head",
-      procurementHeadEmail: alertGmail || "procurement.head@kreuger.local",
+      procurementHeadEmail: secondaryEmail,
       dispatchHeadName: "Dispatch Head",
-      dispatchHeadEmail: alertGmail || "dispatch.head@kreuger.local",
-      salesCoordinatorName: "Sales Coordinator",
-      salesCoordinatorEmail: alertGmail || "sales.coordinator@kreuger.local",
+      dispatchHeadEmail: secondaryEmail,
+      salesCoordinatorName: "Secondary Head",
+      salesCoordinatorEmail: secondaryEmail,
     },
   });
 
@@ -92,7 +98,7 @@ async function main() {
         unitsPerWorkerPerDay: 2.0,
         maxUnitsPerDay: 30,
         headName: "Injection Moulding Head",
-        headEmail: process.env.ALERT_GMAIL?.trim() || "injection@kreuger.local",
+        headEmail: secondaryEmail,
       },
     }),
     prisma.department.create({
@@ -103,7 +109,7 @@ async function main() {
         unitsPerWorkerPerDay: 0.75,
         maxUnitsPerDay: 15,
         headName: "Fabrication Head",
-        headEmail: process.env.ALERT_GMAIL?.trim() || "fabrication.head@kreuger.local",
+        headEmail: secondaryEmail,
       },
     }),
     prisma.department.create({
@@ -114,7 +120,7 @@ async function main() {
         unitsPerWorkerPerDay: 0.5,
         maxUnitsPerDay: 15,
         headName: "Powder Coating Head",
-        headEmail: process.env.ALERT_GMAIL?.trim() || "powdercoating.head@kreuger.local",
+        headEmail: secondaryEmail,
       },
     }),
   ]);

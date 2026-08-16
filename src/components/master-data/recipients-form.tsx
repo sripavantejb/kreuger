@@ -10,6 +10,10 @@ import { updateDepartmentContact, updateEscalationContacts } from "@/lib/actions
 
 type Department = { id: string; name: string; headName: string; headEmail: string };
 type EscalationContacts = {
+  primaryHeadName: string;
+  primaryHeadEmail: string;
+  secondaryHeadName: string;
+  secondaryHeadEmail: string;
   plantHeadName: string;
   plantHeadEmail: string;
   procurementHeadName: string;
@@ -77,7 +81,48 @@ export function RecipientsForm({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-2 text-sm font-medium text-muted-foreground">Department heads (stage-entry alerts)</h3>
+        <h3 className="mb-1 text-sm font-medium text-muted-foreground">Notification heads</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Primary / Secondary heads drive MVP email routing. Edit here — do not hardcode addresses in code.
+        </p>
+        <Card className="max-w-xl">
+          <CardContent className="space-y-4">
+            {(
+              [
+                ["primaryHeadName", "primaryHeadEmail", "Primary Head"],
+                ["secondaryHeadName", "secondaryHeadEmail", "Secondary Head"],
+              ] as const
+            ).map(([nameKey, emailKey, label]) => (
+              <div key={nameKey} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor={nameKey}>{label} name</Label>
+                  <Input
+                    id={nameKey}
+                    value={form[nameKey]}
+                    disabled={readOnly}
+                    onChange={(e) => set(nameKey, e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={emailKey}>{label} email</Label>
+                  <Input
+                    id={emailKey}
+                    type="email"
+                    value={form[emailKey]}
+                    disabled={readOnly}
+                    onChange={(e) => set(emailKey, e.target.value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+          Department heads (stage-entry — falls back to Secondary if blank)
+        </h3>
         <Card>
           <CardContent>
             {departments.map((d) => (
@@ -88,17 +133,13 @@ export function RecipientsForm({
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-medium text-muted-foreground">
-          Escalation &amp; sales contacts
-        </h3>
+        <h3 className="mb-2 text-sm font-medium text-muted-foreground">Legacy / specialised contacts</h3>
         <Card className="max-w-xl">
           <CardContent className="space-y-4">
             {(
               [
-                ["plantHeadName", "plantHeadEmail", "Plant head"],
                 ["procurementHeadName", "procurementHeadEmail", "Procurement head"],
                 ["dispatchHeadName", "dispatchHeadEmail", "Dispatch head"],
-                ["salesCoordinatorName", "salesCoordinatorEmail", "Sales coordinator"],
               ] as const
             ).map(([nameKey, emailKey, label]) => (
               <div key={nameKey} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -128,12 +169,18 @@ export function RecipientsForm({
                 disabled={!dirty || pending}
                 onClick={() =>
                   startTransition(async () => {
-                    await updateEscalationContacts(form);
-                    toast.success("Escalation contacts updated");
+                    await updateEscalationContacts({
+                      ...form,
+                      plantHeadName: form.primaryHeadName,
+                      plantHeadEmail: form.primaryHeadEmail,
+                      salesCoordinatorName: form.secondaryHeadName,
+                      salesCoordinatorEmail: form.secondaryHeadEmail,
+                    });
+                    toast.success("Recipients updated");
                   })
                 }
               >
-                {pending ? "Saving…" : "Save contacts"}
+                {pending ? "Saving…" : "Save recipients"}
               </Button>
             )}
           </CardContent>

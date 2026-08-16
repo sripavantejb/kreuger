@@ -64,6 +64,10 @@ export default async function MasterDataPage() {
             <RecipientsForm
               departments={departments}
               escalation={{
+                primaryHeadName: settings.primaryHeadName,
+                primaryHeadEmail: settings.primaryHeadEmail,
+                secondaryHeadName: settings.secondaryHeadName,
+                secondaryHeadEmail: settings.secondaryHeadEmail,
                 plantHeadName: settings.plantHeadName,
                 plantHeadEmail: settings.plantHeadEmail,
                 procurementHeadName: settings.procurementHeadName,

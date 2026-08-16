@@ -45,10 +45,14 @@ Seeded users (password `ChangeMe123!`): `admin@kreuger.local`, `manager@kreuger.
 
 ## Email (Gmail)
 
-Alerts are always stored in `/alerts`. To also send to Gmail:
+Alerts are **always** written to `/alerts` with delivery status (`sent` / `failed` / `disabled`).
 
-1. Create a [Google App Password](https://myaccount.google.com/apppasswords)
-2. Copy `.env.example` → `.env` and set:
+Recipients (Primary / Secondary heads) live in **Master Data → Recipients** — seeded as:
+
+- Primary: `sripavantejb@gmail.com`
+- Secondary: `harshapolinax@gmail.com`
+
+To send real email:
 
 ```bash
 ENABLE_EMAIL=true
@@ -57,10 +61,10 @@ SMTP_PORT=587
 SMTP_USER=your.name@gmail.com
 SMTP_PASS=your-16-char-app-password
 SMTP_FROM="Kreuger Ops <your.name@gmail.com>"
-ALERT_GMAIL=your.name@gmail.com   # optional test override
+APP_BASE_URL=http://localhost:3000
 ```
 
-3. `npm run seed` (so recipient emails pick up `ALERT_GMAIL`) then trigger an alert (confirm SO / advance stage).
+Emails fire only on business events (SO confirm, stage advance, breach, reminder, etc.) with idempotent `dedupeKey`s — not on page refresh.
 
 ## Out of scope
 

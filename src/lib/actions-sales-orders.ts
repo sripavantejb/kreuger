@@ -4,12 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 import { requireRole, getSession } from "./auth";
 import {
-  buildEscalationAlert,
-  buildFollowUpReminderAlert,
-  buildSalesOrderConfirmedAlert,
   getContactDirectory,
+  notify,
+  dashboardLink,
 } from "./alerts";
-import { maybeSendAlertEmail } from "./email";
 import { isPriority, type Priority } from "./priority";
 import { createOrder } from "./actions";
 
@@ -73,17 +71,38 @@ export async function createSalesOrderFromQuotation(input: {
     });
     if (!firstSoId) firstSoId = so.id;
 
-    const alertData = buildSalesOrderConfirmedAlert({
-      soNumber,
-      productName: line.productName,
-      quantity: line.quantity,
-      colourName: line.colourName,
+    await notify({
+      type: "sales_order_confirmed",
+      dedupeKey: `sales_order_confirmed:${so.id}`,
+      salesOrderId: so.id,
       directory,
+      context: {
+        soNumber,
+        productName: line.productName,
+        quantity: line.quantity,
+        colourName: line.colourName,
+        status: "Pending verification",
+        priority,
+        requiredAction: "Verify item code, drawing, BOM and order details, then approve & release.",
+        dashboardUrl: dashboardLink(`/sales-orders/${so.id}`),
+      },
     });
-    const alert = await prisma.alert.create({
-      data: { ...alertData, salesOrderId: so.id },
+    await notify({
+      type: "sales_coordinator_approval",
+      dedupeKey: `sales_coordinator_approval:${so.id}`,
+      salesOrderId: so.id,
+      directory,
+      context: {
+        soNumber,
+        productName: line.productName,
+        quantity: line.quantity,
+        colourName: line.colourName,
+        status: "Awaiting coordinator approval",
+        priority,
+        requiredAction: "Complete verification checklist and approve & release to OC.",
+        dashboardUrl: dashboardLink(`/sales-orders/${so.id}`),
+      },
     });
-    await maybeSendAlertEmail(alert);
   }
 
   revalidatePath("/sales-orders");
@@ -119,17 +138,38 @@ export async function createSalesOrderManual(input: {
     },
   });
 
-  const alertData = buildSalesOrderConfirmedAlert({
-    soNumber,
-    productName: product.name,
-    quantity: input.quantity,
-    colourName: colour.name,
+  await notify({
+    type: "sales_order_confirmed",
+    dedupeKey: `sales_order_confirmed:${so.id}`,
+    salesOrderId: so.id,
     directory,
+    context: {
+      soNumber,
+      productName: product.name,
+      quantity: input.quantity,
+      colourName: colour.name,
+      status: "Pending verification",
+      priority: so.priority,
+      requiredAction: "Verify item code, drawing, BOM and order details, then approve & release.",
+      dashboardUrl: dashboardLink(`/sales-orders/${so.id}`),
+    },
   });
-  const alert = await prisma.alert.create({
-    data: { ...alertData, salesOrderId: so.id },
+  await notify({
+    type: "sales_coordinator_approval",
+    dedupeKey: `sales_coordinator_approval:${so.id}`,
+    salesOrderId: so.id,
+    directory,
+    context: {
+      soNumber,
+      productName: product.name,
+      quantity: input.quantity,
+      colourName: colour.name,
+      status: "Awaiting coordinator approval",
+      priority: so.priority,
+      requiredAction: "Complete verification checklist and approve & release to OC.",
+      dashboardUrl: dashboardLink(`/sales-orders/${so.id}`),
+    },
   });
-  await maybeSendAlertEmail(alert);
 
   revalidatePath("/sales-orders");
   revalidatePath("/alerts");
@@ -255,22 +295,32 @@ export async function sendStageReminder(ocId: string) {
   const [oc, directory] = await Promise.all([
     prisma.orderConfirmation.findUniqueOrThrow({
       where: { id: ocId },
-      include: { product: true },
+      include: { product: true, colour: true },
     }),
     getContactDirectory(),
   ]);
   if (oc.status === "closed" || oc.status === "cancelled") {
     throw new Error("Cannot remind on a closed or cancelled OC.");
   }
-  const alertData = buildFollowUpReminderAlert({
-    ocNumber: oc.ocNumber,
-    productName: oc.product.name,
-    quantity: oc.quantity,
+  // Deliberate reminder — unique per trigger time so managers can re-send
+  await notify({
+    type: "follow_up_reminder",
+    dedupeKey: `follow_up_reminder:${oc.id}:${Date.now()}`,
+    ocId: oc.id,
     stageName: oc.currentStage,
     directory,
+    context: {
+      ocNumber: oc.ocNumber,
+      productName: oc.product.name,
+      quantity: oc.quantity,
+      colourName: oc.colour.name,
+      currentStage: oc.currentStage,
+      status: "Follow-up pending",
+      priority: oc.priority,
+      requiredAction: "Update progress or advance the stage when ready.",
+      dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+    },
   });
-  const alert = await prisma.alert.create({ data: { ocId: oc.id, ...alertData } });
-  await maybeSendAlertEmail(alert);
   revalidatePath("/alerts");
   revalidatePath("/follow-up");
 }
@@ -280,29 +330,37 @@ export async function escalateStage(ocId: string) {
   const [oc, directory] = await Promise.all([
     prisma.orderConfirmation.findUniqueOrThrow({
       where: { id: ocId },
-      include: { product: true },
+      include: { product: true, colour: true },
     }),
     getContactDirectory(),
   ]);
   if (oc.status === "closed" || oc.status === "cancelled") {
     throw new Error("Cannot escalate a closed or cancelled OC.");
   }
-  const alertData = buildEscalationAlert({
-    ocNumber: oc.ocNumber,
-    productName: oc.product.name,
-    quantity: oc.quantity,
+  await notify({
+    type: "escalation",
+    dedupeKey: `escalation:${oc.id}:${Date.now()}`,
+    ocId: oc.id,
     stageName: oc.currentStage,
     directory,
+    context: {
+      ocNumber: oc.ocNumber,
+      productName: oc.product.name,
+      quantity: oc.quantity,
+      colourName: oc.colour.name,
+      currentStage: oc.currentStage,
+      status: "Escalated",
+      priority: oc.priority,
+      requiredAction: "Review and advise next steps.",
+      dashboardUrl: dashboardLink(`/orders/${oc.id}`),
+    },
   });
-  const alert = await prisma.alert.create({ data: { ocId: oc.id, ...alertData } });
-  await maybeSendAlertEmail(alert);
   revalidatePath("/alerts");
   revalidatePath("/follow-up");
 }
 
 export async function markFollowUpNoted(ocId: string) {
   await requireRole("MANAGER");
-  // Soft marker: write a short internal alert so the action is auditable without new schema.
   const session = await getSession();
   const oc = await prisma.orderConfirmation.findUniqueOrThrow({
     where: { id: ocId },
@@ -317,6 +375,9 @@ export async function markFollowUpNoted(ocId: string) {
       subject: `${oc.ocNumber} — follow-up marked complete`,
       body: `Follow-up on ${oc.ocNumber} (${oc.product.name}, stage ${oc.currentStage}) marked complete by ${session?.name ?? "manager"}.`,
       emailSent: false,
+      emailStatus: "disabled",
+      emailError: "Internal note — no email",
+      dedupeKey: `follow_up_noted:${oc.id}:${Date.now()}`,
     },
   });
   revalidatePath("/alerts");
