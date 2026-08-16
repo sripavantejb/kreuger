@@ -105,16 +105,17 @@ export function WeeklyOffForm({
               </div>
             ))}
             {!readOnly && (
-              <div className="flex items-end gap-2 pt-2">
-                <div className="space-y-1.5">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-end">
+                <div className="space-y-1.5 sm:w-40">
                   <Label htmlFor="holiday-date">Date</Label>
                   <Input id="holiday-date" type="date" value={holidayDate} onChange={(e) => setHolidayDate(e.target.value)} />
                 </div>
-                <div className="flex-1 space-y-1.5">
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <Label htmlFor="holiday-name">Name</Label>
                   <Input id="holiday-name" value={holidayName} onChange={(e) => setHolidayName(e.target.value)} />
                 </div>
                 <Button
+                  className="w-full sm:w-auto"
                   disabled={!holidayDate || !holidayName.trim() || addingHoliday}
                   onClick={() =>
                     startAddingHoliday(async () => {

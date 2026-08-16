@@ -24,6 +24,7 @@ model Settings {
   rampDays        Float @default(1.5)
   shiftHours      Float @default(8)
   weeklyOff       String[] @default(["Sunday"]) // day-of-week names, e.g. "Sunday"
+  gstPercent      Float @default(18) // applied to every quotation's total in the BOQ-style PDF
 
   plantHeadName        String @default("Plant Head")
   plantHeadEmail       String @default("plant.head@kreuger.local")
@@ -56,6 +57,7 @@ model Product {
   code      String   @unique
   baseRate  Float
   defaultLeadDays Int @default(14) // pre-fills target days / plan range for new OCs of this product
+  description String @default("") // one spec per line; rendered as bullet points on the quotation PDF
 
   materials       ProductMaterial[]
   departmentRates ProductDepartmentRate[]
@@ -76,6 +78,7 @@ model Colour {
 }
 
 // Product.imageByColour, modelled as a join table so it stays editable data.
+// imagePath holds a data: URI uploaded from Master Data — no external file storage.
 model ProductColourImage {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
   productId String  @db.ObjectId
@@ -148,6 +151,7 @@ model Quotation {
   lineTotal           Float
   createdAt           DateTime @default(now())
   revisesQuotationNumber String? // set when this quotation was created via "Revise"
+  location            String  @default("") // e.g. "Reception", "Workstations" — shown as its own column on the PDF
 
   product Product @relation(fields: [productId], references: [id])
   colour  Colour  @relation(fields: [colourId], references: [id])

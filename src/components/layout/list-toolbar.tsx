@@ -54,8 +54,8 @@ export function ListToolbar({
   }, [q]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 pb-4">
-      <div className="relative w-64">
+    <div className="flex flex-col gap-2 pb-4 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="relative w-full sm:w-64 sm:shrink-0">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder={searchPlaceholder}
@@ -65,50 +65,54 @@ export function ListToolbar({
         />
       </div>
 
-      {filterOptions && (
-        <Select
-          value={searchParams.get("filter") ?? "all"}
-          onValueChange={(v) => v && updateParam("filter", v)}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue>
-              {(value: string) =>
-                value === "all" ? filterLabel ?? "All" : filterOptions.find((o) => o.value === value)?.label
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{filterLabel ?? "All"}</SelectItem>
-            {filterOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {filterOptions && (
+          <Select
+            value={searchParams.get("filter") ?? "all"}
+            onValueChange={(v) => v && updateParam("filter", v)}
+          >
+            <SelectTrigger className="w-full min-w-0 sm:w-44">
+              <SelectValue>
+                {(value: string) =>
+                  value === "all" ? filterLabel ?? "All" : filterOptions.find((o) => o.value === value)?.label
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{filterLabel ?? "All"}</SelectItem>
+              {filterOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
-      {sortOptions && (
-        <Select
-          value={searchParams.get("sort") ?? sortOptions[0].value}
-          onValueChange={(v) => v && updateParam("sort", v)}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue>
-              {(value: string) => sortOptions.find((o) => o.value === value)?.label ?? sortOptions[0].label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {sortOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+        {sortOptions && (
+          <Select
+            value={searchParams.get("sort") ?? sortOptions[0].value}
+            onValueChange={(v) => v && updateParam("sort", v)}
+          >
+            <SelectTrigger className="w-full min-w-0 sm:w-44">
+              <SelectValue>
+                {(value: string) => sortOptions.find((o) => o.value === value)?.label ?? sortOptions[0].label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
-      <div className="ml-auto flex items-center gap-2">{children}</div>
+      {children && (
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">{children}</div>
+      )}
     </div>
   );
 }

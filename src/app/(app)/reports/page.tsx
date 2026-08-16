@@ -63,7 +63,7 @@ export default async function ReportsPage() {
         }}
         actions={<ExportCsvButton filename="report-summary.csv" rows={csvRows} />}
       />
-      <div className="space-y-6 px-8 py-6">
+      <div className="space-y-6 px-4 sm:px-6 md:px-8 py-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
             <CardHeader className="pb-2">

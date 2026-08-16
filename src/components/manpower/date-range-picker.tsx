@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { addDays, addMonths, addWeeks, format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,15 @@ export function DateRangePicker({
 }) {
   const calendarDays = calendarDaysBetween(value.from, value.to);
   const workingDays = workingDaysBetween(value.from, value.to, workingDayConfig);
+  const [months, setMonths] = useState(1);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setMonths(mq.matches ? 2 : 1);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   function applyPreset(preset: "1w" | "2w" | "1m") {
     const to =
@@ -38,7 +48,7 @@ export function DateRangePicker({
           <CalendarIcon className="size-4" />
           {format(value.from, "d MMM yyyy")} – {format(value.to, "d MMM yyyy")}
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0">
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0">
           <Calendar
             mode="range"
             selected={{ from: value.from, to: value.to }}
@@ -46,7 +56,7 @@ export function DateRangePicker({
               if (range?.from && range?.to) onChange({ from: range.from, to: range.to });
               else if (range?.from) onChange({ from: range.from, to: range.from });
             }}
-            numberOfMonths={2}
+            numberOfMonths={months}
           />
         </PopoverContent>
       </Popover>
@@ -56,7 +66,7 @@ export function DateRangePicker({
         {workingDayConfig.weeklyOff.join(", ") || "no"} excluded
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         <Button size="sm" variant="outline" onClick={() => applyPreset("1w")}>
           +1 week
         </Button>

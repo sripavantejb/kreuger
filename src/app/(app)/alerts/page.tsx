@@ -71,7 +71,7 @@ export default async function AlertsPage({
           ),
         }}
       />
-      <div className="px-8 py-6 max-w-3xl">
+      <div className="px-4 sm:px-6 md:px-8 py-6 max-w-3xl">
         <ListToolbar searchPlaceholder="Search alerts…" filterOptions={TYPE_OPTIONS} filterLabel="All types">
           <ExportCsvButton filename="alerts.csv" rows={csvRows} />
         </ListToolbar>
@@ -82,7 +82,7 @@ export default async function AlertsPage({
               className="p-0 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-both hover:shadow-md"
               style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
             >
-              <div className="flex items-start gap-4 px-5 py-4">
+              <div className="flex items-start gap-3 px-4 py-4 sm:gap-4 sm:px-5">
                 <div
                   className={
                     "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full " +
@@ -98,12 +98,12 @@ export default async function AlertsPage({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <div className="min-w-0">
                       <div className="text-xs text-muted-foreground">To: {a.recipient}</div>
-                      <div className="truncate text-sm font-semibold">{a.subject}</div>
+                      <div className="text-sm font-semibold break-words">{a.subject}</div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
                       <Badge
                         variant="outline"
                         className={
@@ -115,7 +115,7 @@ export default async function AlertsPage({
                       >
                         {a.type === "deadline_breach" ? "Deadline breach" : "Stage entry"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground">
                         {formatDateTime(a.createdAt)}
                       </span>
                     </div>

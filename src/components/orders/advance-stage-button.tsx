@@ -12,8 +12,9 @@ export function AdvanceStageButton({ ocId, nextStage }: { ocId: string; nextStag
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
+    <div className="flex w-full flex-col items-stretch gap-1.5 sm:w-auto sm:items-end">
       <Button
+        className="w-full sm:w-auto"
         onClick={() =>
           startTransition(async () => {
             setError(null);

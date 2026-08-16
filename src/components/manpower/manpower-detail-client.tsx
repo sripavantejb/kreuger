@@ -105,7 +105,7 @@ export function ManpowerDetailClient({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[360px_1fr]">
+    <div className="grid grid-cols-1 gap-8 px-4 sm:px-6 md:px-8 py-6 lg:grid-cols-[360px_1fr]">
       <Card>
         <CardContent className="space-y-5">
           <div className="space-y-1.5">

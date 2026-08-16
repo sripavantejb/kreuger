@@ -9,15 +9,22 @@ export const dynamic = "force-dynamic";
 export default async function NewQuotationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ productId?: string; colourId?: string; quantity?: string; revises?: string }>;
+  searchParams: Promise<{
+    productId?: string;
+    colourId?: string;
+    quantity?: string;
+    location?: string;
+    revises?: string;
+  }>;
 }) {
   const session = await getSession();
   if (!session || !roleAtLeast(session.role, "MANAGER")) redirect("/quotations");
 
-  const [products, colours, colourImages, prefill] = await Promise.all([
+  const [products, colours, colourImages, settings, prefill] = await Promise.all([
     prisma.product.findMany({ include: { pricingSlabs: true } }),
     prisma.colour.findMany(),
     prisma.productColourImage.findMany(),
+    prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
     searchParams,
   ]);
 
@@ -39,9 +46,11 @@ export default async function NewQuotationPage({
         products={products}
         colours={colours}
         colourImages={colourImages}
+        gstPercent={settings.gstPercent}
         initialProductId={prefill.productId}
         initialColourId={prefill.colourId}
         initialQuantity={prefill.quantity ? Number(prefill.quantity) : undefined}
+        initialLocation={prefill.location}
         revisesQuotationNumber={prefill.revises}
       />
     </div>

@@ -8,19 +8,21 @@ import { ProductBasicForm } from "@/components/master-data/product-basic-form";
 import { PricingSlabsTable } from "@/components/master-data/pricing-slabs-table";
 import { MaterialsTable } from "@/components/master-data/materials-table";
 import { DepartmentRatesForm } from "@/components/master-data/department-rates-form";
+import { ProductColourImagesForm } from "@/components/master-data/product-colour-images-form";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [product, session, departments] = await Promise.all([
+  const [product, session, departments, colours] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
-      include: { pricingSlabs: true, materials: true, departmentRates: true },
+      include: { pricingSlabs: true, materials: true, departmentRates: true, colourImages: true },
     }),
     getSession(),
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.colour.findMany(),
   ]);
   if (!product) notFound();
   const readOnly = !session || !roleAtLeast(session.role, "ADMIN");
@@ -39,6 +41,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 <li><strong>Pricing slabs</strong> — quantity breakpoints and the discount each unlocks on the base rate.</li>
                 <li><strong>Materials per unit</strong> — the raw materials consumed, used to size procurement.</li>
                 <li><strong>Stage / department rates</strong> — override a department&apos;s units-per-worker-per-day or daily ceiling for this product alone; leave a stage as &quot;Using default&quot; to fall back to the global Departments setting.</li>
+                <li><strong>Photos by colour</strong> — upload a real product photo per colour; it appears on the quotation preview and PDF instead of a plain swatch.</li>
               </ul>
             </>
           ),
@@ -49,7 +52,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           </Button>
         }
       />
-      <div className="space-y-8 px-8 py-6">
+      <div className="space-y-8 px-4 sm:px-6 md:px-8 py-6">
         <div>
           <h2 className="mb-3 text-sm font-semibold">Basics</h2>
           <ProductBasicForm product={product} readOnly={readOnly} />
@@ -68,6 +71,15 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             productId={product.id}
             departments={departments}
             overrides={product.departmentRates}
+            readOnly={readOnly}
+          />
+        </div>
+        <div>
+          <h2 className="mb-3 text-sm font-semibold">Photos by colour</h2>
+          <ProductColourImagesForm
+            productId={product.id}
+            colours={colours}
+            colourImages={product.colourImages}
             readOnly={readOnly}
           />
         </div>

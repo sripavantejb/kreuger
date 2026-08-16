@@ -41,11 +41,11 @@ export function ManpowerResultPanel({
               </p>
             )}
             {result.earliestWorkingDays !== null && earliestEndDate && (
-              <div className="flex items-center gap-3 pt-1">
+              <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
                 <p className="font-medium text-foreground">
                   Earliest completion: {result.earliestWorkingDays} working days — {formatDate(earliestEndDate)}.
                 </p>
-                <Button size="sm" variant="outline" onClick={onUseEarliestDate}>
+                <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={onUseEarliestDate}>
                   Use this date
                 </Button>
               </div>
@@ -58,7 +58,7 @@ export function ManpowerResultPanel({
 
   return (
     <div className="animate-in fade-in slide-in-from-top-1 duration-300 space-y-4">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-border p-4">
           <div className="text-xs text-muted-foreground">Total man-hours</div>
           <div className="mt-1 text-xl font-semibold tabular-nums">{formatNumber(Math.round(result.totalManHours))}</div>

@@ -7,22 +7,24 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { updateSettings } from "@/lib/actions";
 
-type Settings = { procurementDays: number; rampDays: number; shiftHours: number };
+type Settings = { procurementDays: number; rampDays: number; shiftHours: number; gstPercent: number };
 
 export function SettingsForm({ settings, readOnly = false }: { settings: Settings; readOnly?: boolean }) {
   const [procurementDays, setProcurementDays] = useState(settings.procurementDays);
   const [rampDays, setRampDays] = useState(settings.rampDays);
   const [shiftHours, setShiftHours] = useState(settings.shiftHours);
+  const [gstPercent, setGstPercent] = useState(settings.gstPercent);
   const [pending, startTransition] = useTransition();
 
   const dirty =
     procurementDays !== settings.procurementDays ||
     rampDays !== settings.rampDays ||
-    shiftHours !== settings.shiftHours;
+    shiftHours !== settings.shiftHours ||
+    gstPercent !== settings.gstPercent;
 
   function save() {
     startTransition(async () => {
-      await updateSettings({ procurementDays, rampDays, shiftHours });
+      await updateSettings({ procurementDays, rampDays, shiftHours, gstPercent });
       toast.success("Settings updated");
     });
   }
@@ -64,6 +66,19 @@ export function SettingsForm({ settings, readOnly = false }: { settings: Setting
           disabled={readOnly}
           onChange={(e) => setShiftHours(Number(e.target.value) || 0)}
         />
+      </div>
+      <div className="space-y-1.5 border-t border-border pt-4">
+        <Label htmlFor="gstPercent">GST (%)</Label>
+        <Input
+          id="gstPercent"
+          type="number"
+          min={0}
+          step={0.5}
+          value={gstPercent}
+          disabled={readOnly}
+          onChange={(e) => setGstPercent(Number(e.target.value) || 0)}
+        />
+        <p className="text-xs text-muted-foreground">Applied to every quotation&apos;s total on the exported PDF.</p>
       </div>
       {!readOnly && (
         <Button onClick={save} disabled={!dirty || pending}>

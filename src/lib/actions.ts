@@ -21,6 +21,7 @@ export async function createQuotation(input: {
   productId: string;
   quantity: number;
   colourId: string;
+  location?: string;
   revisesQuotationNumber?: string;
 }) {
   await requireRole("MANAGER");
@@ -40,6 +41,7 @@ export async function createQuotation(input: {
       colourId: input.colourId,
       unitRate,
       lineTotal,
+      location: input.location?.trim() ?? "",
       revisesQuotationNumber: input.revisesQuotationNumber,
     },
   });
@@ -311,6 +313,7 @@ export async function updateSettings(input: {
   procurementDays: number;
   rampDays: number;
   shiftHours: number;
+  gstPercent: number;
 }) {
   await requireRole("ADMIN");
   await prisma.settings.update({
@@ -319,4 +322,5 @@ export async function updateSettings(input: {
   });
   revalidatePath("/master-data");
   revalidatePath("/orders");
+  revalidatePath("/quotations");
 }

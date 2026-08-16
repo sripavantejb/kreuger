@@ -58,7 +58,7 @@ export default async function DashboardPage() {
           ),
         }}
       />
-      <div className="px-8 py-6 space-y-6">
+      <div className="px-4 sm:px-6 md:px-8 py-6 space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
             <CardHeader className="pb-2">

@@ -12,7 +12,12 @@ export function ExportCsvButton({
   rows: Record<string, string | number>[];
 }) {
   return (
-    <Button variant="outline" onClick={() => downloadCsv(filename, rows)} disabled={rows.length === 0}>
+    <Button
+      variant="outline"
+      className="w-full sm:w-auto"
+      onClick={() => downloadCsv(filename, rows)}
+      disabled={rows.length === 0}
+    >
       <Download /> Export CSV
     </Button>
   );

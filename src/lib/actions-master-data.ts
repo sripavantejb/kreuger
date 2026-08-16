@@ -51,6 +51,7 @@ export async function updateProduct(input: {
   code: string;
   baseRate: number;
   defaultLeadDays: number;
+  description: string;
 }) {
   await requireRole("ADMIN");
   await prisma.product.update({
@@ -60,6 +61,7 @@ export async function updateProduct(input: {
       code: input.code.toUpperCase(),
       baseRate: input.baseRate,
       defaultLeadDays: input.defaultLeadDays,
+      description: input.description,
     },
   });
   revalidatePath("/master-data");
@@ -122,6 +124,44 @@ export async function clearProductDepartmentRate(input: { productId: string; dep
   revalidatePath("/master-data");
   revalidatePath("/orders");
   revalidatePath("/manpower");
+}
+
+// ---- Per-colour product photos --------------------------------------
+// Stored as a data: URI directly on ProductColourImage.imagePath — no
+// external file storage, so this works in any hosting environment.
+
+const MAX_IMAGE_DATA_URI_LENGTH = 4_000_000; // ~3MB raw before base64 overhead
+
+export async function updateProductColourImage(input: {
+  productId: string;
+  colourId: string;
+  imageDataUrl: string;
+}) {
+  await requireRole("ADMIN");
+  if (!input.imageDataUrl.startsWith("data:image/")) {
+    throw new Error("Expected an image file.");
+  }
+  if (input.imageDataUrl.length > MAX_IMAGE_DATA_URI_LENGTH) {
+    throw new Error("Image is too large — please use a file under 3MB.");
+  }
+  await prisma.productColourImage.upsert({
+    where: { productId_colourId: { productId: input.productId, colourId: input.colourId } },
+    create: { productId: input.productId, colourId: input.colourId, imagePath: input.imageDataUrl },
+    update: { imagePath: input.imageDataUrl },
+  });
+  revalidatePath("/master-data");
+  revalidatePath("/quotations");
+}
+
+export async function clearProductColourImage(input: { productId: string; colourId: string }) {
+  await requireRole("ADMIN");
+  await prisma.productColourImage.upsert({
+    where: { productId_colourId: { productId: input.productId, colourId: input.colourId } },
+    create: { productId: input.productId, colourId: input.colourId, imagePath: "" },
+    update: { imagePath: "" },
+  });
+  revalidatePath("/master-data");
+  revalidatePath("/quotations");
 }
 
 export async function addPricingSlabRow(productId: string) {

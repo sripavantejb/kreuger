@@ -23,7 +23,13 @@ const links = [
   { href: "/master-data", label: "Master data", icon: Database },
 ];
 
-export function SidebarNav({ alertBadgeCount = 0 }: { alertBadgeCount?: number }) {
+export function SidebarNav({
+  alertBadgeCount = 0,
+  onNavigate,
+}: {
+  alertBadgeCount?: number;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -34,24 +40,18 @@ export function SidebarNav({ alertBadgeCount = 0 }: { alertBadgeCount?: number }
           <Link
             key={href}
             href={href}
+            onClick={onNavigate}
             className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
+              "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[15px] font-semibold transition-colors duration-150",
               active
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground/70 hover:translate-x-0.5 hover:bg-secondary hover:text-foreground"
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
           >
-            <Icon className="size-4 transition-transform duration-200" strokeWidth={2} />
+            <Icon className="size-4" strokeWidth={active ? 2.25 : 2} />
             <span className="flex-1">{label}</span>
             {href === "/alerts" && alertBadgeCount > 0 && (
-              <span
-                className={cn(
-                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold",
-                  active
-                    ? "bg-primary-foreground/20 text-primary-foreground"
-                    : "bg-[var(--status-breach)] text-white"
-                )}
-              >
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                 {alertBadgeCount > 99 ? "99+" : alertBadgeCount}
               </span>
             )}

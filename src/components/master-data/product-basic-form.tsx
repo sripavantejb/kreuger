@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,14 @@ import {
 import { updateProduct, deleteProduct } from "@/lib/actions-master-data";
 import { Trash2 } from "lucide-react";
 
-type Product = { id: string; name: string; code: string; baseRate: number; defaultLeadDays: number };
+type Product = {
+  id: string;
+  name: string;
+  code: string;
+  baseRate: number;
+  defaultLeadDays: number;
+  description: string;
+};
 
 export function ProductBasicForm({ product, readOnly = false }: { product: Product; readOnly?: boolean }) {
   const router = useRouter();
@@ -25,6 +33,7 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
   const [code, setCode] = useState(product.code);
   const [baseRate, setBaseRate] = useState(product.baseRate);
   const [defaultLeadDays, setDefaultLeadDays] = useState(product.defaultLeadDays);
+  const [description, setDescription] = useState(product.description);
   const [pending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
@@ -34,11 +43,12 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
     name !== product.name ||
     code !== product.code ||
     baseRate !== product.baseRate ||
-    defaultLeadDays !== product.defaultLeadDays;
+    defaultLeadDays !== product.defaultLeadDays ||
+    description !== product.description;
 
   function save() {
     startTransition(async () => {
-      await updateProduct({ id: product.id, name, code, baseRate, defaultLeadDays });
+      await updateProduct({ id: product.id, name, code, baseRate, defaultLeadDays, description });
       toast.success("Product updated");
     });
   }
@@ -81,6 +91,20 @@ export function ProductBasicForm({ product, readOnly = false }: { product: Produ
         />
         <p className="text-xs text-muted-foreground">
           Pre-fills the target timeline on a new order for this product.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="description">Specifications</Label>
+        <Textarea
+          id="description"
+          rows={6}
+          value={description}
+          disabled={readOnly}
+          placeholder={"One spec per line, e.g.\nMedium back mesh chair\nAdjustable lumbar support\nNylon base with 60mm castors"}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          One spec per line — rendered as bullet points on the quotation PDF.
         </p>
       </div>
       {!readOnly && (

@@ -102,11 +102,11 @@ export function NewOrderForm({
   }
 
   if (!product || !colour) {
-    return <div className="px-8 py-6 text-sm text-muted-foreground">No product master data found.</div>;
+    return <div className="px-4 sm:px-6 md:px-8 py-6 text-sm text-muted-foreground">No product master data found.</div>;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[360px_1fr]">
+    <div className="grid grid-cols-1 gap-8 px-4 sm:px-6 md:px-8 py-6 lg:grid-cols-[360px_1fr]">
       <Card>
         <CardContent className="space-y-5">
           <div className="space-y-1.5">

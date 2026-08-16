@@ -1,11 +1,17 @@
-import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line } from "@react-pdf/renderer";
+import path from "node:path";
+import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line, Image } from "@react-pdf/renderer";
+
+const LOGO_SRC = path.join(process.cwd(), "public/logo.png");
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, color: "#1c1917", fontFamily: "Helvetica" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", borderBottom: 1, borderColor: "#e7e5e4", paddingBottom: 16, marginBottom: 24 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logo: { width: 40, height: 40 },
   eyebrow: { fontSize: 8, color: "#78716c", textTransform: "uppercase", letterSpacing: 1 },
   quotationNumber: { fontSize: 18, fontWeight: 700, marginTop: 4 },
   headerRight: { textAlign: "right", color: "#78716c" },
+  companyName: { color: "#1c1917", fontWeight: 700 },
   body: { flexDirection: "row", gap: 24 },
   imageBox: { width: 180, height: 180, borderWidth: 1, borderColor: "#e7e5e4", backgroundColor: "#fafaf9", alignItems: "center", justifyContent: "center" },
   details: { flex: 1, justifyContent: "space-between" },
@@ -89,12 +95,15 @@ export function QuotationDocument({ data }: { data: QuotationPdfData }) {
     <Document title={data.quotationNumber}>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.eyebrow}>Quotation</Text>
-            <Text style={styles.quotationNumber}>{data.quotationNumber}</Text>
+          <View style={styles.headerLeft}>
+            <Image src={LOGO_SRC} style={styles.logo} />
+            <View>
+              <Text style={styles.eyebrow}>Quotation</Text>
+              <Text style={styles.quotationNumber}>{data.quotationNumber}</Text>
+            </View>
           </View>
           <View style={styles.headerRight}>
-            <Text>Kreuger Furniture Works</Text>
+            <Text style={styles.companyName}>Kreuger Furniture Works</Text>
             <Text>{formatDate(data.date)}</Text>
           </View>
         </View>

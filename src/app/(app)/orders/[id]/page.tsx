@@ -63,7 +63,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           ),
         }}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2">
             <Badge
               variant="outline"
               className={`border-transparent capitalize ${
@@ -82,13 +82,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         }
       />
 
-      <div className="space-y-8 px-8 py-6">
+      <div className="space-y-8 px-4 sm:px-6 md:px-8 py-6">
         <Card>
           <CardContent className="space-y-6">
             <StageTracker stageList={stageList} currentStage={oc.currentStage} breachedStages={breachedStages} />
 
             {active && next && (
-              <div className="flex items-center justify-between border-t border-border pt-5">
+              <div className="flex flex-col gap-4 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm">
                   {openEvent && !isTerminalStage(oc.currentStage) && (
                     <>

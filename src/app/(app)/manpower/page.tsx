@@ -67,7 +67,7 @@ export default async function ManpowerListPage({
           ),
         }}
       />
-      <div className="px-8 py-6">
+      <div className="px-4 sm:px-6 md:px-8 py-6">
         <ListToolbar
           searchPlaceholder="Search orders…"
           filterOptions={STATUS_OPTIONS}

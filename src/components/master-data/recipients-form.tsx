@@ -25,7 +25,7 @@ function DepartmentContactRow({ dept, readOnly }: { dept: Department; readOnly: 
   const dirty = name !== dept.headName || email !== dept.headEmail;
 
   return (
-    <div className="grid grid-cols-[140px_1fr_1fr_auto] items-center gap-3 border-b border-border py-3 last:border-0">
+    <div className="grid grid-cols-1 items-start gap-3 border-b border-border py-3 last:border-0 sm:grid-cols-[140px_1fr_1fr_auto] sm:items-center">
       <div className="text-sm font-medium">{dept.name}</div>
       <Input value={name} disabled={readOnly} onChange={(e) => setName(e.target.value)} placeholder="Contact name" />
       <Input
@@ -39,6 +39,7 @@ function DepartmentContactRow({ dept, readOnly }: { dept: Department; readOnly: 
         <Button
           size="sm"
           variant="outline"
+          className="w-full sm:w-auto"
           disabled={!dirty || pending}
           onClick={() =>
             startTransition(async () => {
@@ -95,7 +96,7 @@ export function RecipientsForm({
                 ["dispatchHeadName", "dispatchHeadEmail", "Dispatch head"],
               ] as const
             ).map(([nameKey, emailKey, label]) => (
-              <div key={nameKey} className="grid grid-cols-2 gap-3">
+              <div key={nameKey} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor={nameKey}>{label} name</Label>
                   <Input

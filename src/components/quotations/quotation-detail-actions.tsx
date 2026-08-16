@@ -21,6 +21,7 @@ export function QuotationDetailActions({
   productId,
   colourId,
   quantity,
+  location,
   canWrite,
 }: {
   quotationId: string;
@@ -28,6 +29,7 @@ export function QuotationDetailActions({
   productId: string;
   colourId: string;
   quantity: number;
+  location: string;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -36,35 +38,37 @@ export function QuotationDetailActions({
 
   return (
     <>
-      <Button
-        variant="outline"
-        nativeButton={false}
-        render={<Link href={`/quotations/${quotationId}/print`} target="_blank" />}
-      >
-        Print view
-      </Button>
-      <Button nativeButton={false} render={<a href={`/quotations/${quotationId}/pdf`} download />}>
-        <Download /> Export PDF
-      </Button>
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href={`/quotations/${quotationId}/print`} target="_blank" />}
+        >
+          Print view
+        </Button>
+        <Button nativeButton={false} render={<a href={`/quotations/${quotationId}/pdf`} download />}>
+          <Download /> Export PDF
+        </Button>
 
-      {canWrite && (
-        <>
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={
-              <Link
-                href={`/quotations/new?productId=${productId}&colourId=${colourId}&quantity=${quantity}&revises=${quotationNumber}`}
-              />
-            }
-          >
-            <Copy /> Revise
-          </Button>
-          <Button variant="destructive" onClick={() => setOpen(true)}>
-            <Trash2 /> Delete
-          </Button>
-        </>
-      )}
+        {canWrite && (
+          <>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/quotations/new?productId=${productId}&colourId=${colourId}&quantity=${quantity}&location=${encodeURIComponent(location)}&revises=${quotationNumber}`}
+                />
+              }
+            >
+              <Copy /> Revise
+            </Button>
+            <Button variant="destructive" onClick={() => setOpen(true)}>
+              <Trash2 /> Delete
+            </Button>
+          </>
+        )}
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
