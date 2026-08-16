@@ -4,10 +4,12 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { UtilisationBar } from "@/components/manpower/utilisation-bar";
 import { formatDate, formatNumber } from "@/lib/format";
 import { ListToolbar } from "@/components/layout/list-toolbar";
 import type { Prisma } from "@/generated/prisma";
+import { Calculator } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,11 @@ export default async function ManpowerListPage({
       <PageHeader
         title="Manpower efficiency"
         description="Pick any existing order confirmation to see department headcount, hours and utilisation for a date range."
+        actions={
+          <Button variant="outline" nativeButton={false} render={<Link href="/manpower/custom" />}>
+            <Calculator /> Custom plan
+          </Button>
+        }
       />
       <div className="px-8 py-6">
         <ListToolbar
