@@ -2,18 +2,12 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import {
-  Prisma,
-  PrismaClientKnownRequestError,
-  PrismaClientInitializationError,
-} from "@/generated/prisma";
+import { Prisma } from "@/generated/prisma";
 import { prisma } from "./prisma";
 import { SESSION_COOKIE, signSession, verifyPassword, type Role } from "./auth";
 
 function loginFailureMessage(err: unknown): string {
   const isPrisma =
-    err instanceof PrismaClientKnownRequestError ||
-    err instanceof PrismaClientInitializationError ||
     err instanceof Prisma.PrismaClientKnownRequestError ||
     err instanceof Prisma.PrismaClientInitializationError;
 
