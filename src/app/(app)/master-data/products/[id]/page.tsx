@@ -40,7 +40,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 <li><strong>Basics</strong> — name, code, base rate and the default lead days pre-filled on a new order for this product.</li>
                 <li><strong>Pricing slabs</strong> — quantity breakpoints and the discount each unlocks on the base rate.</li>
                 <li><strong>Materials per unit</strong> — the raw materials consumed, used to size procurement.</li>
-                <li><strong>Stage / department rates</strong> — override a department&apos;s units-per-worker-per-day or daily ceiling for this product alone; leave a stage as &quot;Using default&quot; to fall back to the global Departments setting.</li>
+                <li><strong>Product-based capacity mapping</strong> — override a department&apos;s daily capacity for this product alone; leave a stage as &quot;Using default&quot; to fall back to the global Departments setting.</li>
                 <li><strong>Photos by colour</strong> — upload a real product photo per colour; it appears on the quotation preview and PDF instead of a plain swatch.</li>
               </ul>
             </>
@@ -66,7 +66,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <MaterialsTable productId={product.id} materials={product.materials} readOnly={readOnly} />
         </div>
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Stage / department rates</h2>
+          <h2 className="mb-3 text-sm font-semibold">Product-based capacity mapping</h2>
           <DepartmentRatesForm
             productId={product.id}
             departments={departments}

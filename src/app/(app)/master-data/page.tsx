@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageBody } from "@/components/layout/page-body";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DepartmentsTable } from "@/components/master-data/departments-table";
+import { ProductCapacityMapping } from "@/components/master-data/product-capacity-mapping";
 import { ProductsTable } from "@/components/master-data/products-table";
 import { RecipientsForm } from "@/components/master-data/recipients-form";
 import { SettingsForm } from "@/components/master-data/settings-form";
@@ -18,7 +19,10 @@ export default async function MasterDataPage() {
 
   const [departments, products, settings, users, holidays] = await Promise.all([
     prisma.department.findMany({ orderBy: { sequence: "asc" } }),
-    prisma.product.findMany({ orderBy: { name: "asc" } }),
+    prisma.product.findMany({
+      orderBy: { name: "asc" },
+      include: { departmentRates: true },
+    }),
     prisma.settings.findUniqueOrThrow({ where: { id: 1 } }),
     isAdmin ? prisma.user.findMany({ orderBy: { createdAt: "asc" } }) : Promise.resolve([]),
     prisma.holiday.findMany({ orderBy: { date: "asc" } }),
@@ -34,8 +38,8 @@ export default async function MasterDataPage() {
             <>
               <p>Everything on this page is a direct input to the capacity, manpower and pricing calculations elsewhere in the app — change a value here and every future order, quotation and manpower plan uses it.</p>
               <ul>
-                <li><strong>Departments</strong> — headcount, units/worker/day and the daily ceiling for each production stage, in the order goods pass through them.</li>
-                <li><strong>Products</strong> — base rate, default lead time, materials required per unit, and optional per-department rate overrides for that product alone (open a product to set these).</li>
+                <li><strong>Departments</strong> — headcount and daily capacity for each production stage, plus product-based capacity overrides mapped below the global table.</li>
+                <li><strong>Products</strong> — base rate, default lead time, materials required per unit, and optional per-department capacity overrides for that product alone (open a product, or edit mapping on the Departments tab).</li>
                 <li><strong>Weekly off &amp; holidays</strong> — which days don&apos;t count as working days for the manpower calculator.</li>
                 <li><strong>Recipients</strong> — who alert emails are addressed to for each department and escalation.</li>
                 <li><strong>Users</strong> — accounts and roles (Admin, Manager, Viewer) — Admin only.</li>
@@ -54,11 +58,31 @@ export default async function MasterDataPage() {
             <TabsTrigger value="settings">Timeline settings</TabsTrigger>
             {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
           </TabsList>
-          <TabsContent value="departments" className="mt-4">
-            <DepartmentsTable departments={departments} readOnly={!isAdmin} />
+          <TabsContent value="departments" className="mt-4 space-y-8">
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Global capacity</h3>
+              <p className="text-xs text-muted-foreground">
+                Default headcount and daily capacity used when a product has no override for a stage.
+              </p>
+              <DepartmentsTable departments={departments} readOnly={!isAdmin} />
+            </div>
+            <ProductCapacityMapping
+              products={products}
+              departments={departments}
+              readOnly={!isAdmin}
+            />
           </TabsContent>
           <TabsContent value="products" className="mt-4">
-            <ProductsTable products={products} readOnly={!isAdmin} />
+            <ProductsTable
+              products={products.map(({ id, name, code, baseRate, defaultLeadDays }) => ({
+                id,
+                name,
+                code,
+                baseRate,
+                defaultLeadDays,
+              }))}
+              readOnly={!isAdmin}
+            />
           </TabsContent>
           <TabsContent value="recipients" className="mt-4">
             <RecipientsForm

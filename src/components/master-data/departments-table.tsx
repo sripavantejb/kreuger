@@ -17,15 +17,19 @@ type Department = {
 
 function Row({ dept, readOnly }: { dept: Department; readOnly: boolean }) {
   const [headcount, setHeadcount] = useState(dept.headcount);
-  const [rate, setRate] = useState(dept.unitsPerWorkerPerDay);
   const [ceiling, setCeiling] = useState(dept.maxUnitsPerDay);
   const [pending, startTransition] = useTransition();
 
-  const dirty = headcount !== dept.headcount || rate !== dept.unitsPerWorkerPerDay || ceiling !== dept.maxUnitsPerDay;
+  const dirty = headcount !== dept.headcount || ceiling !== dept.maxUnitsPerDay;
 
   function save() {
     startTransition(async () => {
-      await updateDepartment({ id: dept.id, headcount, unitsPerWorkerPerDay: rate, maxUnitsPerDay: ceiling });
+      await updateDepartment({
+        id: dept.id,
+        headcount,
+        unitsPerWorkerPerDay: dept.unitsPerWorkerPerDay,
+        maxUnitsPerDay: ceiling,
+      });
       toast.success(`${dept.name} updated`);
     });
   }
@@ -41,17 +45,6 @@ function Row({ dept, readOnly }: { dept: Department; readOnly: boolean }) {
           disabled={readOnly}
           onChange={(e) => setHeadcount(Number(e.target.value) || 0)}
           className="w-24"
-        />
-      </TableCell>
-      <TableCell>
-        <Input
-          type="number"
-          min={0}
-          step={0.05}
-          value={rate}
-          disabled={readOnly}
-          onChange={(e) => setRate(Number(e.target.value) || 0)}
-          className="w-28"
         />
       </TableCell>
       <TableCell>
@@ -83,8 +76,7 @@ export function DepartmentsTable({ departments, readOnly = false }: { department
           <TableRow>
             <TableHead>Department</TableHead>
             <TableHead>Headcount</TableHead>
-            <TableHead>Units / worker / day</TableHead>
-            <TableHead>Ceiling (units/day)</TableHead>
+            <TableHead>Capacity</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>

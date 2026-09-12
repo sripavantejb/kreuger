@@ -35,9 +35,7 @@ function Row({
   const [pending, startTransition] = useTransition();
   const [resetting, startReset] = useTransition();
 
-  const dirty =
-    rate !== (override?.unitsPerWorkerPerDay ?? department.unitsPerWorkerPerDay) ||
-    ceiling !== (override?.maxUnitsPerDay ?? department.maxUnitsPerDay);
+  const dirty = ceiling !== (override?.maxUnitsPerDay ?? department.maxUnitsPerDay);
 
   return (
     <TableRow className="h-14">
@@ -55,20 +53,7 @@ function Row({
           )}
         </div>
       </TableCell>
-      <TableCell className="text-muted-foreground">
-        {department.unitsPerWorkerPerDay} / {department.maxUnitsPerDay}
-      </TableCell>
-      <TableCell>
-        <Input
-          type="number"
-          min={0}
-          step={0.05}
-          value={rate}
-          disabled={readOnly}
-          onChange={(e) => setRate(Number(e.target.value) || 0)}
-          className="w-24"
-        />
-      </TableCell>
+      <TableCell className="text-muted-foreground">{department.maxUnitsPerDay}</TableCell>
       <TableCell>
         <Input
           type="number"
@@ -130,29 +115,32 @@ export function DepartmentRatesForm({
   departments,
   overrides,
   readOnly = false,
+  showDescription = true,
 }: {
   productId: string;
   departments: Department[];
   overrides: Override[];
   readOnly?: boolean;
+  showDescription?: boolean;
 }) {
   const overrideByDept = new Map(overrides.map((o) => [o.departmentId, o]));
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Custom overrides this product&apos;s units-per-worker-per-day and daily ceiling for that
-        department, for every order and manpower plan of this product. Departments without an
-        override use the global figures from the Departments tab.
-      </p>
+      {showDescription ? (
+        <p className="text-xs text-muted-foreground">
+          Custom overrides this product&apos;s daily capacity for that department, for every order
+          and manpower plan of this product. Departments without an override use the global capacity
+          from the Departments tab.
+        </p>
+      ) : null}
       <div className="border border-border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Department</TableHead>
-              <TableHead>Global default (rate / ceiling)</TableHead>
-              <TableHead>Units / worker / day</TableHead>
-              <TableHead>Ceiling (units/day)</TableHead>
+              <TableHead>Global default capacity</TableHead>
+              <TableHead>Capacity</TableHead>
               {!readOnly && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
