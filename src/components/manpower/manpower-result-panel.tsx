@@ -1,8 +1,9 @@
 import { AlertTriangle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { UtilisationBar } from "./utilisation-bar";
-import { bottleneckSummary, type ManpowerResult } from "@/lib/manpower";
+import { bottleneckSummary, type ManpowerPlanningMode, type ManpowerResult } from "@/lib/manpower";
 import { formatDate, formatNumber } from "@/lib/format";
 
 export function ManpowerResultPanel({
@@ -11,12 +12,18 @@ export function ManpowerResultPanel({
   targetDate,
   earliestEndDate,
   onUseEarliestDate,
+  mode = "date",
+  canEditWorkers = false,
+  onWorkerChange,
 }: {
   result: ManpowerResult;
   workingDays: number;
   targetDate: Date;
   earliestEndDate: Date | null;
   onUseEarliestDate: () => void;
+  mode?: ManpowerPlanningMode;
+  canEditWorkers?: boolean;
+  onWorkerChange?: (departmentId: string, workers: number) => void;
 }) {
   if (result.status === "blocked") {
     const names = result.bottlenecks.map((b) => b.departmentName);
@@ -26,14 +33,26 @@ export function ManpowerResultPanel({
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[var(--status-breach)]" />
           <div className="space-y-1.5 text-sm">
             <p className="font-semibold text-[var(--status-breach)]">
-              Not achievable in {workingDays} working days.
+              {result.reason === "insufficient_workers"
+                ? "Assign at least one worker in every department."
+                : `Not achievable in ${workingDays} working days.`}
             </p>
             {result.reason === "capacity_exceeded" ? (
               <p className="text-foreground/80">
                 {bottleneckSummary(names)}
                 {names.length === 1 ? " caps" : names.length === 2 ? " both cap" : " all cap"} at{" "}
-                {formatNumber(result.slowestCeiling ?? 0)} units per working day. Required rate:{" "}
-                {result.requiredRate?.toFixed(2)} units/day.
+                {formatNumber(result.slowestCeiling ?? 0)} units per working day
+                {result.overtimeHoursPerDay > 0
+                  ? ` (with ${result.overtimeHoursPerDay}h OT)`
+                  : ""}. Required rate: {result.requiredRate?.toFixed(2)} units/day.
+                {result.overtimeHoursPerDay <= 0 && (
+                  <> Try enabling overtime to raise daily capacity.</>
+                )}
+              </p>
+            ) : result.reason === "insufficient_workers" ? (
+              <p className="text-foreground/80">
+                Missing or zero workers in {bottleneckSummary(names)}. Raise the headcount inputs to
+                calculate a schedule.
               </p>
             ) : (
               <p className="text-foreground/80">
@@ -56,12 +75,20 @@ export function ManpowerResultPanel({
     );
   }
 
+  const showOt = result.overtimeHoursPerDay > 0;
+
   return (
     <div className="animate-in fade-in slide-in-from-top-1 duration-300 space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border p-4">
           <div className="text-xs text-muted-foreground">Total man-hours</div>
           <div className="mt-1 text-xl font-semibold tabular-nums">{formatNumber(Math.round(result.totalManHours))}</div>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <div className="text-xs text-muted-foreground">Overtime man-hours</div>
+          <div className="mt-1 text-xl font-semibold tabular-nums">
+            {showOt ? formatNumber(Math.round(result.totalOvertimeManHours)) : "—"}
+          </div>
         </div>
         <div className="rounded-lg border border-border p-4">
           <div className="text-xs text-muted-foreground">Longest department</div>
@@ -74,7 +101,29 @@ export function ManpowerResultPanel({
       </div>
 
       <div className="text-sm text-muted-foreground">
-        Required rate: <span className="font-medium text-foreground">{result.requiredRate.toFixed(2)} units/working day</span>
+        {mode === "workers" ? (
+          <>
+            Schedule needs{" "}
+            <span className="font-medium text-foreground">{workingDays} working days</span>
+            {" · "}
+            Effective rate{" "}
+            <span className="font-medium text-foreground">{result.requiredRate.toFixed(2)} units/working day</span>
+          </>
+        ) : (
+          <>
+            Required rate:{" "}
+            <span className="font-medium text-foreground">{result.requiredRate.toFixed(2)} units/working day</span>
+          </>
+        )}
+        {showOt && (
+          <>
+            {" · "}
+            Day length{" "}
+            <span className="font-medium text-foreground">
+              {result.hoursPerDay}h ({result.overtimeHoursPerDay}h OT)
+            </span>
+          </>
+        )}
       </div>
 
       <div className="border border-border">
@@ -86,17 +135,43 @@ export function ManpowerResultPanel({
               <TableHead className="text-right">Working days</TableHead>
               <TableHead className="text-right">Hours</TableHead>
               <TableHead className="text-right">Man-hours</TableHead>
+              {showOt && <TableHead className="text-right">OT man-hours</TableHead>}
               <TableHead>Utilisation</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {result.lines.map((l) => (
               <TableRow key={l.departmentId} className="h-12">
-                <TableCell className="font-medium">{l.departmentName}</TableCell>
-                <TableCell className="text-right tabular-nums">{l.workers}</TableCell>
+                <TableCell className="font-medium">
+                  <div>{l.departmentName}</div>
+                  {l.workers > l.headcount && (
+                    <div className="text-xs font-normal text-[var(--status-warn)]">
+                      Over pool ({l.headcount})
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {canEditWorkers && onWorkerChange ? (
+                    <Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="ml-auto h-8 w-20 text-right"
+                      value={l.workers}
+                      onChange={(e) => onWorkerChange(l.departmentId, Number(e.target.value))}
+                    />
+                  ) : (
+                    l.workers
+                  )}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{l.workingDays.toFixed(2)}</TableCell>
                 <TableCell className="text-right tabular-nums">{l.workingHours.toFixed(1)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatNumber(Math.round(l.manHours))}</TableCell>
+                {showOt && (
+                  <TableCell className="text-right tabular-nums">
+                    {formatNumber(Math.round(l.overtimeManHours))}
+                  </TableCell>
+                )}
                 <TableCell>
                   <UtilisationBar value={l.utilisation} />
                 </TableCell>

@@ -302,28 +302,32 @@ model OcStageEvent {
 // explicit Save), distinct from OcDepartmentPlan, which is the immutable
 // record of the plan made at OC creation time under Scenario 3.
 model ManpowerPlan {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  ocId          String   @unique @db.ObjectId
-  startDate     DateTime
-  endDate       DateTime
-  workingDays   Float
-  requiredRate  Float?
-  status        String   // achievable | blocked
-  computedAt    DateTime @default(now())
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  ocId                 String   @unique @db.ObjectId
+  startDate            DateTime
+  endDate              DateTime
+  workingDays          Float
+  requiredRate         Float?
+  status               String   // achievable | blocked
+  planningMode         String   @default("date") // date | workers
+  overtimeHoursPerDay  Float    @default(0) // extra hours beyond Settings.shiftHours
+  computedAt           DateTime @default(now())
 
   oc    OrderConfirmation  @relation(fields: [ocId], references: [id], onDelete: Cascade)
   lines ManpowerPlanLine[]
 }
 
 model ManpowerPlanLine {
-  id              String @id @default(auto()) @map("_id") @db.ObjectId
-  planId          String @db.ObjectId
-  departmentId    String @db.ObjectId
-  workersRequired Int
-  workingDays     Float
-  workingHours    Float
-  manHours        Float
-  utilisation     Float // requiredRate / ceiling, e.g. 0.70 = 70%
+  id                String @id @default(auto()) @map("_id") @db.ObjectId
+  planId            String @db.ObjectId
+  departmentId      String @db.ObjectId
+  workersRequired   Int
+  workingDays       Float
+  workingHours      Float
+  manHours          Float
+  regularManHours   Float  @default(0)
+  overtimeManHours  Float  @default(0)
+  utilisation       Float // requiredRate / ceiling, e.g. 0.70 = 70%
 
   plan       ManpowerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   department Department   @relation(fields: [departmentId], references: [id])

@@ -3,8 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 import { requireRole } from "./auth";
-import { planManpower, type ManpowerLine } from "./manpower";
-import { workingDaysBetween, type WorkingDayConfig } from "./working-days";
+import {
+  planManpower,
+  planManpowerFromWorkers,
+  totalWorkingDaysForResult,
+  type ManpowerLine,
+  type ManpowerPlanningMode,
+} from "./manpower";
+import { workingDaysBetween, addWorkingDays, type WorkingDayConfig } from "./working-days";
 import { applyProductDepartmentRates } from "./product-department-rates";
 
 export async function getWorkingDayConfig(): Promise<WorkingDayConfig> {
@@ -19,9 +25,19 @@ export async function getWorkingDayConfig(): Promise<WorkingDayConfig> {
 // action id regardless of whether any client component references it, so
 // this checks role itself rather than trusting a caller to have already
 // checked — including when called from the OC-creation hook.
-export async function saveManpowerPlan(input: { ocId: string; startDate: Date; endDate: Date }) {
-  await requireRole("MANAGER");
+export async function saveManpowerPlan(input: {
+  ocId: string;
+  startDate: Date;
+  endDate?: Date;
+  mode?: ManpowerPlanningMode;
+  workersByDepartment?: Record<string, number>;
+  overtimeHoursPerDay?: number;
+}) {
+  // Plant heads adjust shop-floor headcount; managers/admins keep full access.
+  await requireRole("HEAD");
 
+  const mode: ManpowerPlanningMode = input.mode ?? "date";
+  const overtimeHoursPerDay = Math.max(0, input.overtimeHoursPerDay ?? 0);
   const oc = await prisma.orderConfirmation.findUniqueOrThrow({
     where: { id: input.ocId },
     include: { product: { include: { materials: true } } },
@@ -33,31 +49,71 @@ export async function saveManpowerPlan(input: { ocId: string; startDate: Date; e
     prisma.productDepartmentRate.findMany({ where: { productId: oc.productId } }),
   ]);
 
-  const workingDays = workingDaysBetween(input.startDate, input.endDate, config);
   const constants = {
     procurementWorkingDays: settings.procurementDays,
     rampDays: settings.rampDays,
     shiftHours: settings.shiftHours,
   };
   const effectiveDepartments = applyProductDepartmentRates(departments, departmentRates);
-  const result = planManpower(oc.quantity, workingDays, effectiveDepartments, constants, oc.product.materials);
+
+  let startDate = input.startDate;
+  let endDate = input.endDate ?? input.startDate;
+  let workingDays: number;
+  let result;
+
+  if (mode === "workers") {
+    const workersByDepartment = input.workersByDepartment ?? {};
+    result = planManpowerFromWorkers(
+      oc.quantity,
+      workersByDepartment,
+      effectiveDepartments,
+      constants,
+      oc.product.materials,
+      overtimeHoursPerDay
+    );
+    if (result.status === "achievable") {
+      const totalDays = Math.ceil(totalWorkingDaysForResult(result, constants));
+      workingDays = totalDays;
+      endDate = addWorkingDays(startDate, Math.max(totalDays, 1), config);
+      // Align persisted working-day count with the inclusive range we store.
+      workingDays = workingDaysBetween(startDate, endDate, config);
+    } else {
+      workingDays = workingDaysBetween(startDate, endDate, config);
+    }
+  } else {
+    if (!input.endDate) throw new Error("End date is required for date-based plans.");
+    endDate = input.endDate;
+    workingDays = workingDaysBetween(startDate, endDate, config);
+    result = planManpower(
+      oc.quantity,
+      workingDays,
+      effectiveDepartments,
+      constants,
+      oc.product.materials,
+      overtimeHoursPerDay
+    );
+  }
 
   const plan = await prisma.manpowerPlan.upsert({
     where: { ocId: input.ocId },
     create: {
       ocId: input.ocId,
-      startDate: input.startDate,
-      endDate: input.endDate,
+      startDate,
+      endDate,
       workingDays,
       requiredRate: result.requiredRate ?? undefined,
       status: result.status,
+      planningMode: mode,
+      overtimeHoursPerDay,
     },
     update: {
-      startDate: input.startDate,
-      endDate: input.endDate,
+      startDate,
+      endDate,
       workingDays,
       requiredRate: result.requiredRate ?? undefined,
       status: result.status,
+      planningMode: mode,
+      overtimeHoursPerDay,
       computedAt: new Date(),
     },
   });
@@ -74,6 +130,8 @@ export async function saveManpowerPlan(input: { ocId: string; startDate: Date; e
             workingDays: l.workingDays,
             workingHours: l.workingHours,
             manHours: l.manHours,
+            regularManHours: l.regularManHours,
+            overtimeManHours: l.overtimeManHours,
             utilisation: l.utilisation,
           },
         })
@@ -83,7 +141,7 @@ export async function saveManpowerPlan(input: { ocId: string; startDate: Date; e
 
   revalidatePath(`/manpower/${input.ocId}`);
   revalidatePath("/manpower");
-  return result;
+  return { result, endDate, workingDays, mode };
 }
 
 export async function updateWeeklyOff(weeklyOff: string[]) {

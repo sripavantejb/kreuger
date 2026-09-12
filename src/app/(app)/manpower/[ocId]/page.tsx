@@ -6,6 +6,7 @@ import { getWorkingDayConfig } from "@/lib/actions-manpower";
 import { PageHeader } from "@/components/layout/page-header";
 import { ManpowerDetailClient } from "@/components/manpower/manpower-detail-client";
 import { formatNumber } from "@/lib/format";
+import type { ManpowerPlanningMode } from "@/lib/manpower";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function ManpowerDetailPage({ params }: { params: Promise<{
       include: {
         product: { include: { materials: true, departmentRates: true } },
         colour: true,
-        manpowerPlan: true,
+        manpowerPlan: { include: { lines: true } },
       },
     }),
     prisma.product.findMany({ include: { materials: true, departmentRates: true } }),
@@ -29,11 +30,19 @@ export default async function ManpowerDetailPage({ params }: { params: Promise<{
     getSession(),
   ]);
   if (!oc) notFound();
-  const canWrite = session ? roleAtLeast(session.role, "MANAGER") : false;
+  const canWrite = session ? roleAtLeast(session.role, "HEAD") : false;
 
   const initialRange = oc.manpowerPlan
     ? { from: oc.manpowerPlan.startDate, to: oc.manpowerPlan.endDate }
     : { from: oc.plannedAt, to: addDays(oc.plannedAt, oc.targetDays) };
+
+  const initialMode: ManpowerPlanningMode =
+    oc.manpowerPlan?.planningMode === "workers" ? "workers" : "date";
+
+  const initialWorkers = Object.fromEntries(
+    (oc.manpowerPlan?.lines ?? []).map((l) => [l.departmentId, l.workersRequired])
+  );
+  const initialOvertimeHoursPerDay = oc.manpowerPlan?.overtimeHoursPerDay ?? 0;
 
   const constants = {
     procurementWorkingDays: settings.procurementDays,
@@ -49,11 +58,35 @@ export default async function ManpowerDetailPage({ params }: { params: Promise<{
         help={{
           content: (
             <>
-              <p>Pick a start and end date for this order&apos;s production run — the calculator converts that range into working days (skipping weekly offs and holidays) and computes the workers, hours and utilisation each department needs.</p>
+              <p>
+                Plan this order by date range or by workers. Optionally add overtime hours beyond the
+                standard shift to raise daily capacity and shorten the schedule.
+              </p>
               <ul>
-                <li><strong>Blocked</strong> — a department can&apos;t keep up in the chosen window; use &quot;earliest achievable date&quot; to jump to a range that works.</li>
-                <li><strong>What-if override</strong> — try a different product, quantity or colour without touching the saved plan.</li>
-                <li><strong>Save plan</strong> — persists the date range against this order (only available with the real product/quantity, not a what-if).</li>
+                <li>
+                  <strong>By dates</strong> — pick start/end; calculator returns workers, hours and
+                  utilisation.
+                </li>
+                <li>
+                  <strong>By workers</strong> — edit people per department (roster pool shown);
+                  calculator returns working days and projected end date.
+                </li>
+                <li>
+                  <strong>Overtime</strong> — extra hours per working day scale worker output and
+                  department ceilings; results show OT man-hours separately.
+                </li>
+                <li>
+                  <strong>Blocked</strong> — window too short, capacity exceeded, or a department has
+                  zero workers. Try overtime when capacity is the blocker.
+                </li>
+                <li>
+                  <strong>What-if override</strong> — try a different product, quantity or colour
+                  without touching the saved plan.
+                </li>
+                <li>
+                  <strong>Save plan</strong> — Head / Manager / Admin can persist the plan against
+                  the real OC product and quantity.
+                </li>
               </ul>
             </>
           ),
@@ -73,6 +106,9 @@ export default async function ManpowerDetailPage({ params }: { params: Promise<{
         constants={constants}
         workingDayConfig={config}
         initialRange={initialRange}
+        initialMode={initialMode}
+        initialWorkers={initialWorkers}
+        initialOvertimeHoursPerDay={initialOvertimeHoursPerDay}
         canWrite={canWrite}
       />
     </div>
